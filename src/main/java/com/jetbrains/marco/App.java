@@ -10,9 +10,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -27,51 +25,10 @@ public class App {
     static String userHome = System.getProperty("user.home");
     static Path thumbnailsDir = Path.of(userHome).resolve(".photos");
 
-    static ImageMagickVersion imageMagickVersion;
-
-
-    public enum ImageMagickVersion {
-        NA, IM6, IM7
-    }
-
-    // TODO actually read in process output, check for ImageMagick version
-    public static ImageMagickVersion detectImageMagickVersion() {
-        try {
-            int exitValue = runCommand(List.of("magick", "--version"));
-            if (exitValue == 0) {
-                return ImageMagickVersion.IM7;
-            }
-
-
-            exitValue = runCommand(List.of("convert", "--version"));
-            if (exitValue == 0) {
-                return ImageMagickVersion.IM6;
-            }
-
-            return ImageMagickVersion.NA;
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
-            return ImageMagickVersion.NA;
-        }
-    }
-
-    private static int runCommand(List<String> cmd) throws IOException, InterruptedException {
-        ProcessBuilder builder = new ProcessBuilder(cmd);
-        builder.inheritIO();
-        Process process = builder.start();
-        boolean finished = process.waitFor(1, TimeUnit.SECONDS);  // not really correct...how to improve?
-        if (!finished) {
-            process.destroy();
-        }
-
-        int exitValue = process.exitValue();
-        return exitValue;
-    }
-
     public static void main(String[] args) throws IOException {
-        imageMagickVersion = detectImageMagickVersion();
-        System.out.println("Detected ImageMagick Version: " + imageMagickVersion);
-        if (imageMagickVersion == ImageMagickVersion.NA) {
+
+
+        if (ImageMagick.imageMagickVersion == ImageMagick.ImageMagickVersion.NA) {
             System.err.println("Sorry, you don't have ImageMagick installed or it's not on your PATH, I'm helpless, I don't know what to do now."); // bonus points for proper instructions...
             System.exit(1);
         }
@@ -94,10 +51,15 @@ public class App {
                 executorService.submit(() -> {
                     String hash = createHash(f);
                     Path dir = thumbnailsDir.resolve(hash.substring(0, 2));
-                    if (!Files.exists(dir)) { try { Files.createDirectories(dir); } catch (IOException e) {} }
+                    if (!Files.exists(dir)) {
+                        try {
+                            Files.createDirectories(dir);
+                        } catch (IOException e) {
+                        }
+                    }
                     String filename = hash.substring(2);
 
-                    boolean thumbnailCreated = createThumbnail(f, dir.resolve(filename + ".jpeg"));
+                    boolean thumbnailCreated = new ImageMagick().createThumbnail(f, dir.resolve(filename + ".jpeg"));
 
                     if (thumbnailCreated) {
                         counter.incrementAndGet();
@@ -158,32 +120,7 @@ public class App {
         }
     }
 
-    private static boolean createThumbnail(Path source, Path target) {
-        // magick convert -resize 300x 32.jpg 32_thumb.png
-        try {
-            System.out.println(Thread.currentThread() + " -> Creating thumbnail: " + target.normalize().toAbsolutePath());
-            List<String> resizeThumbnailCommand = new ArrayList<>(List.of("convert", "-resize", "300x"
-                    , source.normalize().toAbsolutePath().toString(),
-                    target.normalize().toAbsolutePath().toString()));
 
-
-            if (imageMagickVersion == ImageMagickVersion.IM7) {
-                resizeThumbnailCommand.add(0, "magick");
-            }
-
-            ProcessBuilder builder = new ProcessBuilder(resizeThumbnailCommand);
-            builder.inheritIO();
-            Process process = builder.start();
-            boolean finished = process.waitFor(3, TimeUnit.SECONDS);
-            if (!finished) {
-                process.destroy();
-            }
-            return finished && process.exitValue() == 0;
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
 }
 
 
