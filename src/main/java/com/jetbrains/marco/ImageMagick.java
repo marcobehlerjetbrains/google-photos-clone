@@ -1,5 +1,7 @@
 package com.jetbrains.marco;
 
+import com.jetbrains.marco.tables.records.MediaRecord;
+
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;

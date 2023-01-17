@@ -1,6 +1,12 @@
 package com.jetbrains.marco;
 
+import com.jetbrains.marco.tables.Media;
 import io.github.rctcwyvrn.blake3.Blake3;
+import org.jooq.DSLContext;
+import org.jooq.Record;
+import org.jooq.Result;
+import org.jooq.SQLDialect;
+import org.jooq.impl.DSL;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -10,12 +16,17 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
+
+import static com.jetbrains.marco.tables.Media.MEDIA;
 
 /**
  * Hello world!
@@ -44,6 +55,7 @@ public class App {
 
         ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() - 1);
 
+
         try (Stream<Path> files = Files.walk(sourceDir)
                 .filter(Files::isRegularFile)
                 .filter(App::isImage)) {
@@ -59,16 +71,18 @@ public class App {
                     }
                     String filename = hash.substring(2);
 
-                    boolean thumbnailCreated = new ImageMagick().createThumbnail(f, dir.resolve(filename + ".jpeg"));
+                    Path targetFilename = dir.resolve(filename + ".jpeg");
+
+                    boolean thumbnailCreated = new ImageMagick().createThumbnail(f, targetFilename);
 
                     if (thumbnailCreated) {
                         counter.incrementAndGet();
                         createMetadataFile(f, dir.resolve(filename + ".txt"));
+                        saveToDatabase(f, targetFilename);
                     }
                 });
             });
         }
-
 
         try {
             executorService.shutdown();
@@ -78,6 +92,32 @@ public class App {
         }
         long end = System.currentTimeMillis();
         System.out.println("Converted " + counter + " images to thumbnails. Took " + ((end - start) * 0.001) + "seconds");
+    }
+
+    private static void saveToDatabase(Path f, Path targetFilename) {
+        try (Connection conn = DriverManager.getConnection("jdbc:h2:~/media;AUTO_SERVER=TRUE")) {
+            DSLContext create = DSL.using(conn, SQLDialect.H2);
+
+            int execute = create.insertInto(MEDIA, MEDIA.FILE_NAME, MEDIA.REFERENCE)
+                    .values(f.getFileName().toString(), targetFilename.getFileName().toString())
+                    .execute();
+            System.out.println("execute = " + execute);
+
+
+        /*    Result<Record> records = create.select().from(MEDIA).fetch();
+
+            for (Record r : records) {
+                Integer id = r.getValue(MEDIA.ID);
+                String filename = r.getValue(MEDIA.FILE_NAME);
+
+                System.out.println("ID: " + id + " FILENAME: " + filename);
+            }
+*/
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+
     }
 
     private static void createMetadataFile(Path f, Path resolve) {
@@ -90,6 +130,9 @@ public class App {
             e.printStackTrace();
         }
     }
+
+
+
 
 
     private static String createHash(Path f) {
