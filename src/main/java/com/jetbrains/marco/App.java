@@ -19,15 +19,15 @@ public class App {
     public static void main(String[] args) throws IOException {
         Files.createDirectories(thumbnailsDir);
 
-       String directory = args.length == 1 ? args[0] : ".";
+        String directory = args.length == 1 ? args[0] : ".";
         Path sourceDir = Path.of(directory);
 
         AtomicInteger counter = new AtomicInteger();
         long start = System.currentTimeMillis();
 
         try (Stream<Path> files = Files.walk(sourceDir)
-        .filter(Files::isRegularFile)
-        .filter(App::isImage)) {
+                .filter(Files::isRegularFile)
+                .filter(App::isImage)) {
             files.forEach(f -> {
                 counter.incrementAndGet();
                 createThumbnail(f, thumbnailsDir.resolve(f.getFileName()));
@@ -52,8 +52,8 @@ public class App {
         try {
             System.out.println("Creating thumbnail: " + target.normalize().toAbsolutePath());
             List<String> cmd = List.of("magick", "convert", "-resize", "300x"
-                                       , source.normalize().toAbsolutePath().toString(),
-                                       target.normalize().toAbsolutePath().toString());
+                    , source.normalize().toAbsolutePath().toString(),
+                    target.normalize().toAbsolutePath().toString());
             ProcessBuilder builder = new ProcessBuilder(cmd);
             builder.inheritIO();
             Process process = builder.start();
