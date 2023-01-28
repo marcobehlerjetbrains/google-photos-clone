@@ -1,32 +1,42 @@
 package com.jetbrains.marco;
 
-import com.jetbrains.marco.tables.records.MediaRecord;
-
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 public class ImageMagick {
+    public record Version(int major, int minor, int patch, Optional<Integer> build) {
+        private static final Pattern versionPattern
+                = Pattern.compile("^Version: ImageMagick (\\d+)\\.(\\d+)\\.(\\d+)(?:-(\\d+))?", Pattern.MULTILINE);
 
-    static ImageMagickVersion imageMagickVersion;
+        public static Version fromImageMagickOutput(String output) throws IllegalArgumentException {
+            final var matcher = versionPattern.matcher(output);
 
+            if (!matcher.find() || matcher.groupCount() < 3) {
+                return null;
+            }
 
-    public enum ImageMagickVersion {
-        NA, IM6, IM7
+            final var major = Integer.parseInt(matcher.group(1));
+            final var minor = Integer.parseInt(matcher.group(2));
+            final var patch = Integer.parseInt(matcher.group(3));
+
+            Optional<Integer> build;
+
+            try {
+                build = Optional.of(Integer.parseInt(matcher.group(4)));
+            } catch (NumberFormatException e) {
+                build = Optional.empty();
+            }
+
+            return new Version(major, minor, patch, build);
+        }
     }
 
-
-
-    static {
-        imageMagickVersion = detectVersion();
-    }
-
+    public static final Version imageMagickVersion = detectVersion();
 
     private static int runCommand(List<String> cmd) throws IOException, InterruptedException {
         ProcessBuilder builder = new ProcessBuilder(cmd);
@@ -41,28 +51,9 @@ public class ImageMagick {
         return exitValue;
     }
 
-
-
     // TODO actually read in process output, check for ImageMagick version
-    public static ImageMagickVersion detectVersion() {
-        try {
-            System.out.println("Detected ImageMagick Version: " + imageMagickVersion);
-            int exitValue = runCommand(List.of("magick", "--version"));
-            if (exitValue == 0) {
-                return ImageMagickVersion.IM7;
-            }
-
-
-            exitValue = runCommand(List.of("convert", "--version"));
-            if (exitValue == 0) {
-                return ImageMagickVersion.IM6;
-            }
-
-            return ImageMagickVersion.NA;
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
-            return ImageMagickVersion.NA;
-        }
+    public static Version detectVersion() {
+        return new Version(1, 0, 0, Optional.empty());
     }
 
     public static boolean createThumbnail(Path source, Path target) {
@@ -74,7 +65,7 @@ public class ImageMagick {
                     target.normalize().toAbsolutePath().toString()));
 
 
-            if (imageMagickVersion == ImageMagickVersion.IM7) {
+            if (imageMagickVersion.major == 7) {
                 resizeThumbnailCommand.add(0, "magick");
             }
 

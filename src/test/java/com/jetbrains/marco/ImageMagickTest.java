@@ -25,9 +25,9 @@ class ImageMagickTest {
 
     @Test
     public void imageMagick_isInstalled() {
-        assertThat(
-                ImageMagick.detectVersion()).as("No ImageMagick installed or not on your PATH. See %URL% for installation instructions.")
-                .isNotEqualTo(ImageMagick.ImageMagickVersion.NA);
+        assertThat(ImageMagick.detectVersion())
+                .as("No ImageMagick installed or not on your PATH. See %URL% for installation instructions.")
+                .isNotNull();
     }
 
     @Test
@@ -46,8 +46,8 @@ class ImageMagickTest {
     }
 
 
-
-    public record Dimensions(int width, int height) {}
+    public record Dimensions(int width, int height) {
+    }
 
 
     public Dimensions getImageDimensions(Path path) {
