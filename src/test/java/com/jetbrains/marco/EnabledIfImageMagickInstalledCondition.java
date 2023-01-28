@@ -10,7 +10,7 @@ public class EnabledIfImageMagickInstalledCondition implements ExecutionConditio
     @Override
     public ConditionEvaluationResult evaluateExecutionCondition(ExtensionContext extensionContext) {
         return findAnnotation(extensionContext.getElement(), EnabledIfImageMagickIsInstalled.class) //
-                .map((annotation) -> (new App.ImageMagick().detectVersion() != App.ImageMagick.Version.NA)
+                .map((annotation) -> new App.ImageMagick().detectVersion() != null
                         ? ConditionEvaluationResult.enabled("ImageMagick installed.")
                         : ConditionEvaluationResult.disabled("No ImageMagick installation found.")) //
                 .orElse(ConditionEvaluationResult.disabled("By default, Imagemagick tests are disabled"));

@@ -20,7 +20,7 @@ class ImageMagickTest {
 
     @Test
     void imageMagick_is_installed() {
-        assertThat(imageMagick.detectVersion()).isNotEqualTo(App.ImageMagick.Version.NA);
+        assertThat(imageMagick.detectVersion()).isNotNull();
     }
 
     @Test

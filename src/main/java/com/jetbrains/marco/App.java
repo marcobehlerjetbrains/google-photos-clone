@@ -1,12 +1,16 @@
 package com.jetbrains.marco;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
@@ -48,10 +52,40 @@ public class App {
         }
     }
 
-
     public static class ImageMagick {
+        public record Version(int major, int minor, int patch, Optional<Integer> build) {
+            private static final Pattern versionPattern
+                    = Pattern.compile("^Version: ImageMagick (\\d+)\\.(\\d+)\\.(\\d+)(?:-(\\d+))?", Pattern.MULTILINE);
 
-        private Version version = detectVersion();
+            /**
+             * Parse the ImageMagick version output into an instance of the `Version` record.
+             *
+             * @param output Raw ImageMagick version output.
+             */
+            public static Version fromImageMagickOutput(String output) {
+                final var matcher = versionPattern.matcher(output);
+
+                if (!matcher.find() || matcher.groupCount() < 3) {
+                    return null;
+                }
+
+                final var major = Integer.parseInt(matcher.group(1));
+                final var minor = Integer.parseInt(matcher.group(2));
+                final var patch = Integer.parseInt(matcher.group(3));
+
+                Optional<Integer> build;
+
+                try {
+                    build = Optional.of(Integer.parseInt(matcher.group(4)));
+                } catch (NumberFormatException e) {
+                    build = Optional.empty();
+                }
+
+                return new Version(major, minor, patch, build);
+            }
+        }
+
+        private final Version version = detectVersion();
 
         public int run(String... cmds) throws IOException, InterruptedException {
             ProcessBuilder builder = new ProcessBuilder(cmds);
@@ -72,9 +106,10 @@ public class App {
                         , source.normalize().toAbsolutePath().toString(),
                         target.normalize().toAbsolutePath().toString()));
 
-                if (version == Version.IM_7) {
+                if (version.major == 7) {
                     cmd.add(0, "magick");
                 }
+
                 ProcessBuilder builder = new ProcessBuilder(cmd);
                 builder.inheritIO();
                 Process process = builder.start();
@@ -90,24 +125,48 @@ public class App {
         }
 
         public Version detectVersion() {
-            try {
-                int exitCode = run("magick", "--version");
-                if (exitCode == 0) {
-                    return Version.IM_7;
-                }
+            final var commands = new String[][]{
+                    {"magick", "--version"},
+                    {"convert", "--version"}
+            };
 
-                exitCode = run("convert", "--version");
-                if (exitCode == 0) {
-                    return Version.IM_6;
+            for (var command : commands) {
+                final var builder = new ProcessBuilder(command);
+
+                try {
+                    final var process = builder.start();
+                    String versionLine = "";
+
+                    try (final var reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                        String line;
+
+                        while ((line = reader.readLine()) != null) {
+                            // We need only one line.
+                            if (!line.startsWith("Version")) {
+                                continue;
+                            }
+
+                            versionLine = line;
+                            break;
+                        }
+                    }
+
+                    if (!process.waitFor(1, TimeUnit.SECONDS) || process.exitValue() != 0) {
+                        process.destroy();
+                        continue;
+                    }
+
+                    final var version = Version.fromImageMagickOutput(versionLine);
+
+                    if (version != null) {
+                        return version;
+                    }
+                } catch (IOException | InterruptedException e) {
+                    // e.printStackTrace();
                 }
-                return Version.NA;
-            } catch (Exception e) {
-                return Version.NA;
             }
-        }
 
-        public enum Version {
-            NA, IM_6, IM_7
+            return null;
         }
     }
 }
