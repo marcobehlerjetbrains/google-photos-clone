@@ -88,7 +88,7 @@ public class ImageMagick {
 
                 if (!process.waitFor(1, TimeUnit.SECONDS) || process.exitValue() != 0) {
                     process.destroy();
-                    break;
+                    continue;
                 }
 
                 final var version = Version.fromImageMagickOutput(versionLine);
@@ -97,7 +97,7 @@ public class ImageMagick {
                     return version;
                 }
             } catch (IOException | InterruptedException e) {
-                e.printStackTrace();
+                // e.printStackTrace();
             }
         }
 
