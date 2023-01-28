@@ -37,9 +37,7 @@ public class App {
     static Path thumbnailsDir = Path.of(userHome).resolve(".photos");
 
     public static void main(String[] args) throws IOException {
-
-
-        if (ImageMagick.imageMagickVersion == ImageMagick.ImageMagickVersion.NA) {
+        if (ImageMagick.imageMagickVersion == null) {
             System.err.println("Sorry, you don't have ImageMagick installed or it's not on your PATH, I'm helpless, I don't know what to do now."); // bonus points for proper instructions...
             System.exit(1);
         }
