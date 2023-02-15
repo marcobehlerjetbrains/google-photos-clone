@@ -1,6 +1,8 @@
 package com.jetbrains.marco;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -51,18 +53,53 @@ public class App {
 
     public static class ImageMagick {
 
-        private Version version = detectVersion();
 
-        public int run(String... cmds) throws IOException, InterruptedException {
-            ProcessBuilder builder = new ProcessBuilder(cmds);
-            builder.inheritIO();
+        public record ProcessResult(int exitValue, String output) {
+
+        }
+
+        public ProcessResult run(String... cmds) throws IOException, InterruptedException {
+            ProcessBuilder builder = new ProcessBuilder(cmds)
+                    .redirectOutput(ProcessBuilder.Redirect.PIPE)
+                    .redirectInput(ProcessBuilder.Redirect.INHERIT)
+                    .redirectError(ProcessBuilder.Redirect.INHERIT);
+
             Process process = builder.start();
+            StringBuilder output = new StringBuilder();
+            try (final var reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line);
+                }
+            }
             boolean finished = process.waitFor(1, TimeUnit.SECONDS);
             if (!finished) {
                 process.destroy();
             }
-            return process.exitValue();
+            return new ProcessResult(process.exitValue(), output.toString());
         }
+
+        public ImageMagick.Version detectVersion() {
+            try {
+                ProcessResult result = run("magick", "--version");
+                if (result.exitValue == 0) {
+                    return ImageMagick.Version.of(result.output);
+                }
+
+                result = run("convert", "--version");
+                if (result.exitValue == 0) {
+                    return ImageMagick.Version.of(result.output);
+                }
+
+                return ImageMagick.Version.NA;
+            } catch (Exception e) {
+                return ImageMagick.Version.NA;
+            }
+        }
+
+
+        private Version version = detectVersion();
+
 
         public boolean createThumbnail(Path source, Path target) {
             // magick convert -resize 300x 32.jpg 32_thumb.png
@@ -89,25 +126,26 @@ public class App {
             }
         }
 
-        public Version detectVersion() {
-            try {
-                int exitCode = run("magick", "--version");
-                if (exitCode == 0) {
+        public enum Version {
+            NA, IM_6, IM_7;
+
+
+            public static Version of(String string) {
+                if (string == null || string.isBlank()) {
+                    return Version.NA;
+                }
+
+                if (string.startsWith("Version: ImageMagick 7.")) {
                     return Version.IM_7;
                 }
 
-                exitCode = run("convert", "--version");
-                if (exitCode == 0) {
+                if (string.startsWith("Version: ImageMagick 6.")) {
                     return Version.IM_6;
                 }
                 return Version.NA;
-            } catch (Exception e) {
-                return Version.NA;
             }
-        }
 
-        public enum Version {
-            NA, IM_6, IM_7
+
         }
     }
 }

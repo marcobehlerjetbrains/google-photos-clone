@@ -3,6 +3,9 @@ package com.jetbrains.marco;
 import org.assertj.core.api.SoftAssertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -11,8 +14,11 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
+
 
 class ImageMagickTest {
 
@@ -20,7 +26,7 @@ class ImageMagickTest {
 
     @Test
     void imageMagick_is_installed() {
-        assertThat(imageMagick.detectVersion()).isNotEqualTo(App.ImageMagick.Version.NA);
+        assertThat(new App.ImageMagick().detectVersion()).isNotEqualTo(App.ImageMagick.Version.NA);
     }
 
     @Test
@@ -38,6 +44,22 @@ class ImageMagickTest {
         softly.assertAll();
 
         // ??? imagemagick...
+    }
+
+    @ParameterizedTest
+    @MethodSource("stringToVersion")
+    public void parse_imagemagick_versions(String output, App.ImageMagick.Version expectedVersion) {
+        assertThat(App.ImageMagick.Version.of(output)).isEqualTo(expectedVersion);
+    }
+
+    private static Stream<Arguments> stringToVersion() {
+        return Stream.of(
+                arguments("Version: ImageMagick 7.1.0-58 Q16-HDRI x86_64 20802 https://imagemagick.org", App.ImageMagick.Version.IM_7),
+                arguments("Version: ImageMagick 6.9.12-73 Q16 x86_64 17646 https://legacy.imagemagick.org", App.ImageMagick.Version.IM_6),
+                arguments("Version: ImageMagick 7.1.0 Q16-HDRI x86_64 20802 https://imagemagick.org", App.ImageMagick.Version.IM_7),
+                arguments("Version: ImageMagick 7", App.ImageMagick.Version.NA),
+                arguments("asdfasdf 1.2.3-5", App.ImageMagick.Version.NA),
+                arguments("", App.ImageMagick.Version.NA));
     }
 
     private Dimensions getDimensions(Path path) {
