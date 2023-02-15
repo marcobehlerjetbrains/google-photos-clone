@@ -52,32 +52,7 @@ public class App {
 
 
     public static class ImageMagick {
-
-
-        public record ProcessResult(int exitValue, String output) {
-
-        }
-
-        public ProcessResult run(String... cmds) throws IOException, InterruptedException {
-            ProcessBuilder builder = new ProcessBuilder(cmds)
-                    .redirectOutput(ProcessBuilder.Redirect.PIPE)
-                    .redirectInput(ProcessBuilder.Redirect.INHERIT)
-                    .redirectError(ProcessBuilder.Redirect.INHERIT);
-
-            Process process = builder.start();
-            StringBuilder output = new StringBuilder();
-            try (final var reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line);
-                }
-            }
-            boolean finished = process.waitFor(1, TimeUnit.SECONDS);
-            if (!finished) {
-                process.destroy();
-            }
-            return new ProcessResult(process.exitValue(), output.toString());
-        }
+        private Version version = detectVersion();
 
         public ImageMagick.Version detectVersion() {
             try {
@@ -96,9 +71,6 @@ public class App {
                 return ImageMagick.Version.NA;
             }
         }
-
-
-        private Version version = detectVersion();
 
 
         public boolean createThumbnail(Path source, Path target) {
@@ -125,6 +97,38 @@ public class App {
                 return false;
             }
         }
+
+
+
+        public ProcessResult run(String... cmds) throws IOException, InterruptedException {
+            ProcessBuilder builder = new ProcessBuilder(cmds)
+                    .redirectOutput(ProcessBuilder.Redirect.PIPE)
+                    .redirectInput(ProcessBuilder.Redirect.INHERIT)
+                    .redirectError(ProcessBuilder.Redirect.INHERIT);
+
+            Process process = builder.start();
+            StringBuilder output = new StringBuilder();
+
+            try (final var reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line);
+                }
+            }
+            boolean finished = process.waitFor(1, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroy();
+            }
+            return new ProcessResult(process.exitValue(), output.toString());
+        }
+
+
+
+
+        public record ProcessResult(int exitValue, String output) {
+
+        }
+
 
         public enum Version {
             NA, IM_6, IM_7;
