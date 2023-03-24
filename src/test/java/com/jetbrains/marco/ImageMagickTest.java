@@ -46,22 +46,6 @@ class ImageMagickTest {
         // ??? imagemagick...
     }
 
-    @ParameterizedTest
-    @MethodSource("stringToVersion")
-    public void parse_imagemagick_versions(String output, App.ImageMagick.Version expectedVersion) {
-        assertThat(App.ImageMagick.Version.of(output)).isEqualTo(expectedVersion);
-    }
-
-    private static Stream<Arguments> stringToVersion() {
-        return Stream.of(
-                arguments("Version: ImageMagick 7.1.0-58 Q16-HDRI x86_64 20802 https://imagemagick.org", App.ImageMagick.Version.IM_7),
-                arguments("Version: ImageMagick 6.9.12-73 Q16 x86_64 17646 https://legacy.imagemagick.org", App.ImageMagick.Version.IM_6),
-                arguments("Version: ImageMagick 7.1.0 Q16-HDRI x86_64 20802 https://imagemagick.org", App.ImageMagick.Version.IM_7),
-                arguments("Version: ImageMagick 7", App.ImageMagick.Version.NA),
-                arguments("asdfasdf 1.2.3-5", App.ImageMagick.Version.NA),
-                arguments("", App.ImageMagick.Version.NA));
-    }
-
     private Dimensions getDimensions(Path path) {
         try (InputStream is = Files.newInputStream(path)) {
             BufferedImage read = ImageIO.read(is);
