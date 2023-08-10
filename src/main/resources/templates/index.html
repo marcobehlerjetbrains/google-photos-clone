@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<h1>Pictures</h1>
+
+<div th:each="entry: ${images.entrySet()}">
+  <h2 th:text="${entry.key}">[Date]</h2>
+  <img th:each="hash: ${entry.value}" width="300" lazy="true" th:src="${'/a/' + hash}" >
+</div>
+
+</body>
+</html>
