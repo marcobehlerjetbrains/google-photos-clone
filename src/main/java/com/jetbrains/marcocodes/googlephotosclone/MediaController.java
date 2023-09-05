@@ -34,9 +34,9 @@ public class MediaController {
         List<Media> media = mediaRepository.findAllByOrderByCreationDateDesc();
 
         media.forEach(m -> {
-            LocalDate creationDate = m.creationDate().toLocalDate();
+            LocalDate creationDate = m.getCreationDate().toLocalDate();
             images.putIfAbsent(creationDate, new ArrayList<>());
-            images.get(creationDate).add(m.hash());
+            images.get(creationDate).add(m.getHash());
         });
 
         model.addAttribute("images", images);

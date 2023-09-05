@@ -50,16 +50,23 @@ public class Initializr implements ApplicationRunner {
                 .filter(Initializr::isImage);
         ) {
             images.forEach(image -> executorService.submit(() -> {
-                String hash = hash(image);
-                String filename = image.getFileName().toString();
 
-                if (!mediaRepository.existsByFilenameAndHash(filename, hash)) {
-                    final boolean success = createThumbnail(image, hash);
-                    if (success) {
-                        counter.incrementAndGet();
-                        mediaRepository.save(new Media(null, hash, filename, creationTime(image)));
+                try {
+                    String hash = hash(image);
+                    String filename = image.getFileName().toString();
+
+                    if (!mediaRepository.existsByFilenameAndHash(filename, hash)) {
+                        final boolean success = createThumbnail(image, hash);
+                        if (success) {
+                            counter.incrementAndGet();
+                            mediaRepository.save(new Media(null, hash, filename, creationTime(image)));
+                        }
                     }
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
+
+
             }));
         }
         executorService.shutdown();
