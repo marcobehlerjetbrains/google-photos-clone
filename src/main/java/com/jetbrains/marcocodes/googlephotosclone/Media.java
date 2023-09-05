@@ -1,15 +1,13 @@
 package com.jetbrains.marcocodes.googlephotosclone;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 
 
 import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Entity
+@NamedQuery(name = "#findMeSomeMore", query = "select m from Media m order by m.creationDate desc")
 public class Media {
 
     @Id

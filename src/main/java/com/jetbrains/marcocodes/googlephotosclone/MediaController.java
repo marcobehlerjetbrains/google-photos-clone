@@ -1,5 +1,6 @@
 package com.jetbrains.marcocodes.googlephotosclone;
 
+import org.hibernate.query.Order;
 import org.springframework.core.io.PathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Controller;
@@ -23,15 +24,20 @@ public class MediaController {
     static Path thumbnailsDir = Path.of(userHome).resolve(".photos");
 
     private final MediaRepository mediaRepository;
+    private final Queries_ queries_;
 
-    public MediaController(MediaRepository mediaRepository) {
+
+    public MediaController(MediaRepository mediaRepository, Queries_ queries) {
         this.mediaRepository = mediaRepository;
+        queries_ = queries;
     }
 
     @GetMapping("/")
     public String index(Model model) {
         Map<LocalDate, List<String>> images = new TreeMap<>();
-        List<Media> media = mediaRepository.findAllByOrderByCreationDateDesc();
+
+        List<Media> media = queries_.findAll(Order.desc(Media_.creationDate));
+        //List<Media> media = mediaRepository.findAllByOrderByCreationDateDesc();
 
         media.forEach(m -> {
             LocalDate creationDate = m.getCreationDate().toLocalDate();

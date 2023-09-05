@@ -1,6 +1,8 @@
 package com.jetbrains.marcocodes.googlephotosclone;
 
 import io.github.rctcwyvrn.blake3.Blake3;
+import jakarta.persistence.EntityManagerFactory;
+import org.hibernate.SessionFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
@@ -28,10 +30,12 @@ public class Initializr implements ApplicationRunner {
     private final MediaRepository mediaRepository;
     private final ImageMagick imageMagick;
 
+    private final EntityManagerFactory emf;
 
-    public Initializr(MediaRepository mediaRepository, ImageMagick imageMagick) {
+    public Initializr(MediaRepository mediaRepository, ImageMagick imageMagick, EntityManagerFactory emf) {
         this.mediaRepository = mediaRepository;
         this.imageMagick = imageMagick;
+        this.emf = emf;
     }
 
     @Override
@@ -50,23 +54,22 @@ public class Initializr implements ApplicationRunner {
                 .filter(Initializr::isImage);
         ) {
             images.forEach(image -> executorService.submit(() -> {
+                emf.unwrap(SessionFactory.class).inTransaction( em -> {
+                    try {
+                        String hash = hash(image);
+                        String filename = image.getFileName().toString();
 
-                try {
-                    String hash = hash(image);
-                    String filename = image.getFileName().toString();
-
-                    if (!mediaRepository.existsByFilenameAndHash(filename, hash)) {
-                        final boolean success = createThumbnail(image, hash);
-                        if (success) {
-                            counter.incrementAndGet();
-                            mediaRepository.save(new Media(null, hash, filename, creationTime(image)));
+                        if (!new Queries_(em).existsByFilenameAndHash(filename, hash)) {
+                            final boolean success = createThumbnail(image, hash);
+                            if (success) {
+                                counter.incrementAndGet();
+                                em.persist(new Media(null, hash, filename, creationTime(image)));
+                            }
                         }
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-
-
+                });
             }));
         }
         executorService.shutdown();
