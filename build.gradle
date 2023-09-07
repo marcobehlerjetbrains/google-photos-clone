@@ -11,9 +11,10 @@ java {
     sourceCompatibility = '17'
 }
 
-ext['hibernate.version'] = '6.3.0.CR1'
+ext['hibernate.version'] = '6.3.1-SNAPSHOT'
 
 repositories {
+    mavenLocal()
     mavenCentral()
     maven { url 'https://repo.spring.io/milestone' }
     maven { url 'https://repo.spring.io/snapshot' }
@@ -26,7 +27,7 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     // https://mvnrepository.com/artifact/com.h2database/h2
     runtimeOnly group: 'com.h2database', name: 'h2', version: '2.2.220'
-    annotationProcessor 'org.hibernate.orm:hibernate-jpamodelgen:6.3.0.CR1'
+    annotationProcessor 'org.hibernate.orm:hibernate-jpamodelgen'
 
     implementation 'io.github.rctcwyvrn:blake3:1.3'
 

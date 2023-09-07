@@ -2,7 +2,6 @@ package com.jetbrains.marcocodes.googlephotosclone;
 
 import org.springframework.data.repository.ListCrudRepository;
 
-import java.nio.file.Path;
 import java.util.List;
 
 public interface MediaRepository extends ListCrudRepository<Media, Long> {
