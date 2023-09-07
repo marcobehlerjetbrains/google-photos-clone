@@ -59,7 +59,7 @@ public class Initializr implements ApplicationRunner {
                         final boolean success = createThumbnail(image, hash);
                         if (success) {
                             counter.incrementAndGet();
-                            mediaRepository.save(new Media(null, hash, filename, creationTime(image)));
+                            mediaRepository.save(new Media(hash, filename, creationTime(image)));
                         }
                     }
                 } catch (Exception e) {

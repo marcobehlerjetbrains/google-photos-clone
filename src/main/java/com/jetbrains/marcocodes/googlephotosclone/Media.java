@@ -20,8 +20,7 @@ public class Media {
     public Media() {
     }
 
-    public Media(Long id, String hash, String filename, LocalDateTime creationDate) {
-        this.id = id;
+    public Media(String hash, String filename, LocalDateTime creationDate) {
         this.hash = hash;
         this.filename = filename;
         this.creationDate = creationDate;

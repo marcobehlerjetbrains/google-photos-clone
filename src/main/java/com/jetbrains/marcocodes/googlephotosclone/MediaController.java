@@ -18,7 +18,6 @@ import java.util.TreeMap;
 @Controller
 public class MediaController {
 
-
     static String userHome = System.getProperty("user.home");
     static Path thumbnailsDir = Path.of(userHome).resolve(".photos");
 
