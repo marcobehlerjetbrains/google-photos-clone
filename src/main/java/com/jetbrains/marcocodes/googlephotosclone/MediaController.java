@@ -11,10 +11,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.nio.file.Path;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 
 @Controller
 public class MediaController {
@@ -30,13 +27,13 @@ public class MediaController {
 
     @GetMapping("/")
     public String index(Model model) {
-        Map<LocalDate, List<String>> images = new TreeMap<>();
+        Map<LocalDate, List<Media>> images = new LinkedHashMap<>();
         List<Media> media = queries_.media(Order.desc(Media_.creationDate));
 
         media.forEach(m -> {
             LocalDate creationDate = m.getCreationDate().toLocalDate();
             images.putIfAbsent(creationDate, new ArrayList<>());
-            images.get(creationDate).add(m.getHash());
+            images.get(creationDate).add(m);
         });
 
         model.addAttribute("images", images);

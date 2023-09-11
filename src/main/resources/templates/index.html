@@ -9,7 +9,7 @@
 
 <div th:each="entry: ${images.entrySet()}">
   <h2 th:text="${entry.key}">[Date]</h2>
-  <img th:each="hash: ${entry.value}" width="300" lazy="true" th:src="${'/a/' + hash}" >
+  <img th:each="image: ${entry.value}" width="300" lazy="true" th:title="${'Longitude: ' + image.longitude + ' | Latitude: ' + image.latitude + ' | Location: ' + image.location}" th:src="${'/a/' + image.hash}" >
 </div>
 
 </body>

@@ -11,7 +11,7 @@ java {
     sourceCompatibility = '17'
 }
 
-ext['hibernate.version'] = '6.3.0.Final'
+ext['hibernate.version'] = '6.3.0.CR1'
 
 repositories {
     mavenLocal()
@@ -28,6 +28,10 @@ dependencies {
     // https://mvnrepository.com/artifact/com.h2database/h2
     runtimeOnly group: 'com.h2database', name: 'h2', version: '2.2.220'
     annotationProcessor 'org.hibernate.orm:hibernate-jpamodelgen'
+
+
+    // https://mvnrepository.com/artifact/com.drewnoakes/metadata-extractor
+    implementation group: 'com.drewnoakes', name: 'metadata-extractor', version: '2.18.0'
 
     implementation 'io.github.rctcwyvrn:blake3:1.3'
 

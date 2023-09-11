@@ -1,5 +1,10 @@
 package com.jetbrains.marcocodes.googlephotosclone;
 
+import com.drew.imaging.ImageMetadataReader;
+import com.drew.imaging.ImageProcessingException;
+import com.drew.metadata.Metadata;
+import com.drew.metadata.exif.ExifIFD0Directory;
+import com.drew.metadata.exif.GpsDirectory;
 import io.github.rctcwyvrn.blake3.Blake3;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.SessionFactory;
@@ -9,6 +14,10 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -16,6 +25,8 @@ import java.nio.file.attribute.FileTime;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Date;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -55,7 +66,7 @@ public class Initializr implements ApplicationRunner {
                 .filter(Initializr::isImage);
         ) {
             images.forEach(image -> executorService.submit(() -> {
-                emf.unwrap(SessionFactory.class).inTransaction( em -> {
+                emf.unwrap(SessionFactory.class).inTransaction(em -> {
                     try {
                         String hash = hash(image);
                         String filename = image.getFileName().toString();
@@ -64,7 +75,29 @@ public class Initializr implements ApplicationRunner {
                             final boolean success = createThumbnail(image, hash);
                             if (success) {
                                 counter.incrementAndGet();
-                                em.persist(new Media(hash, filename, creationTime(image)));
+                                Media media = new Media(hash, filename, creationTime(image));
+                                Media.GPSCoordinates gpsCoordinates = gpsCoordinates(image);
+                                if (gpsCoordinates != null) {
+                                    media.setLatitude(gpsCoordinates.latitude());
+                                    media.setLongitude(gpsCoordinates.longitude());
+
+
+                                    HttpClient client = HttpClient.newHttpClient();
+                                    HttpRequest request = HttpRequest.newBuilder()
+                                            .uri(URI.create("https://api.3geonames.org/" + gpsCoordinates.latitude() + "," + gpsCoordinates.longitude()))
+                                            .build();
+                                    client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                                            .thenApply(HttpResponse::body)
+                                            .thenAccept( xml -> {
+                                                String location = xml.substring(xml.indexOf("<state>") + 7, xml.indexOf("</state>"));
+                                                location += ",";
+                                                location += xml.substring(xml.indexOf("<city>") + 6, xml.indexOf("</city>"));
+                                                media.setLocation(location);
+                                            })
+                                            .join();
+
+                                }
+                                em.persist(media);
                             }
                         }
                     } catch (Exception e) {
@@ -91,8 +124,39 @@ public class Initializr implements ApplicationRunner {
         }
     }
 
+
+    private static Media.GPSCoordinates gpsCoordinates(Path file) {
+        try (InputStream is = Files.newInputStream(file)) {
+            Metadata metadata = ImageMetadataReader.readMetadata(is);
+            Collection<GpsDirectory> directoriesOfType = metadata.getDirectoriesOfType(GpsDirectory.class);
+
+            if (!directoriesOfType.isEmpty()) {
+                GpsDirectory gpsDirectory = directoriesOfType.iterator().next();
+                return new Media.GPSCoordinates(gpsDirectory.getGeoLocation().getLatitude(), gpsDirectory.getGeoLocation().getLongitude());
+            }
+            return null;
+        } catch (IOException | ImageProcessingException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     private static LocalDateTime creationTime(Path file) {
         try {
+
+            try (InputStream is = Files.newInputStream(file)) {
+                Metadata metadata = ImageMetadataReader.readMetadata(is);
+
+                Collection<ExifIFD0Directory> directoriesOfType = metadata.getDirectoriesOfType(ExifIFD0Directory.class);
+
+                if (!directoriesOfType.isEmpty()) {
+                    ExifIFD0Directory exifIFD0Directory = directoriesOfType.iterator().next();
+                    Date creatioDate = exifIFD0Directory.getDate(306);
+                    LocalDateTime date = creatioDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime(); // wrong
+                    return date;
+                }
+            }
+
             BasicFileAttributes attr = Files.readAttributes(file, BasicFileAttributes.class);
             FileTime fileTime = attr.creationTime();
             return LocalDateTime.ofInstant(fileTime.toInstant(), ZoneId.systemDefault());
