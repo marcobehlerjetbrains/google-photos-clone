@@ -1,6 +1,8 @@
 package com.jetbrains.marcocodes.googlephotosclone;
 
 import io.github.rctcwyvrn.blake3.Blake3;
+import jakarta.persistence.EntityManagerFactory;
+import org.hibernate.SessionFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
@@ -25,13 +27,16 @@ public class Initializr implements ApplicationRunner {
 
     static String userHome = System.getProperty("user.home");
     static Path thumbnailsDir = Path.of(userHome).resolve(".photos");
-    private final MediaRepository mediaRepository;
+    private final Queries queries_;
     private final ImageMagick imageMagick;
 
+    private final EntityManagerFactory emf;
 
-    public Initializr(MediaRepository mediaRepository, ImageMagick imageMagick) {
-        this.mediaRepository = mediaRepository;
+
+    public Initializr(Queries queries_, ImageMagick imageMagick, EntityManagerFactory emf) {
+        this.queries_ = queries_;
         this.imageMagick = imageMagick;
+        this.emf = emf;
     }
 
     @Override
@@ -50,21 +55,22 @@ public class Initializr implements ApplicationRunner {
                 .filter(Initializr::isImage);
         ) {
             images.forEach(image -> executorService.submit(() -> {
+                emf.unwrap(SessionFactory.class).inTransaction( em -> {
+                    try {
+                        String hash = hash(image);
+                        String filename = image.getFileName().toString();
 
-                try {
-                    String hash = hash(image);
-                    String filename = image.getFileName().toString();
-
-                    if (!mediaRepository.existsByFilenameAndHash(filename, hash)) {
-                        final boolean success = createThumbnail(image, hash);
-                        if (success) {
-                            counter.incrementAndGet();
-                            mediaRepository.save(new Media(hash, filename, creationTime(image)));
+                        if (!queries_.existsByFilenameAndHash(filename, hash)) {
+                            final boolean success = createThumbnail(image, hash);
+                            if (success) {
+                                counter.incrementAndGet();
+                                em.persist(new Media(hash, filename, creationTime(image)));
+                            }
                         }
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                });
 
 
             }));
