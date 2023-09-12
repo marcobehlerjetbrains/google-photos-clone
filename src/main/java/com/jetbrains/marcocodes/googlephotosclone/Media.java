@@ -5,8 +5,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Entity
 public class Media {
@@ -27,10 +30,15 @@ public class Media {
     public Media() {
     }
 
-    public Media(String hash, String filename, LocalDateTime creationDate) {
+    public Media(String hash, String filename, LocalDateTime creationDate, Location location) {
         this.hash = hash;
         this.filename = filename;
         this.creationDate = creationDate;
+        if (location != null) {
+            this.longitude = location.longitude();
+            this.latitude = location.latitude();
+            this.location = location.name();
+        }
     }
 
     public Long getId() {
@@ -89,5 +97,20 @@ public class Media {
         this.location = location;
     }
 
-    record GPSCoordinates(Double latitude, Double longitude) {}
+    public static String locationsToString(Collection<Media> media) {
+        Set<String> locations = media.stream().map(m -> {
+            String location = m.getLocation();
+            if (location == null) {
+                return "Unknown";
+            }
+            return location.substring(location.indexOf(",") + 1) + ", " + location.substring(0, location.indexOf(","));
+        }).collect(Collectors.toSet());
+        if (locations.size() > 1) {
+            return locations.iterator().next() + "& " + (locations.size() - 1) + " more";
+        } else if (locations.size() == 1) {
+            return locations.iterator().next();
+        } else {
+            throw new UnsupportedOperationException("should not happen");
+        }
+    }
 }

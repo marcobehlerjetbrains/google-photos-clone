@@ -27,8 +27,9 @@ public class ImageMagick {
     public boolean createThumbnail(Path source, Path target) {
         // magick convert -resize 300x 32.jpg 32_thumb.png
         try {
+            String resizeDimensions = "x217";
             System.out.println("Creating thumbnail: " + target.normalize().toAbsolutePath());
-            List<String> cmd = new ArrayList<>(List.of("convert", "-resize", "300x"
+            List<String> cmd = new ArrayList<>(List.of("convert", "-resize", resizeDimensions
                     , source.normalize().toAbsolutePath().toString(),
                     target.normalize().toAbsolutePath().toString()));
 

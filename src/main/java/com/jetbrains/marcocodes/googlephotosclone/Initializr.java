@@ -1,10 +1,12 @@
 package com.jetbrains.marcocodes.googlephotosclone;
 
 import com.drew.imaging.ImageMetadataReader;
-import com.drew.imaging.ImageProcessingException;
+import com.drew.imaging.png.PngChunkType;
+import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.exif.ExifIFD0Directory;
 import com.drew.metadata.exif.GpsDirectory;
+import com.drew.metadata.png.PngDirectory;
 import io.github.rctcwyvrn.blake3.Blake3;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.SessionFactory;
@@ -72,32 +74,19 @@ public class Initializr implements ApplicationRunner {
                         String filename = image.getFileName().toString();
 
                         if (!queries_.existsByFilenameAndHash(filename, hash)) {
-                            final boolean success = createThumbnail(image, hash);
-                            if (success) {
-                                counter.incrementAndGet();
-                                Media media = new Media(hash, filename, creationTime(image));
-                                Media.GPSCoordinates gpsCoordinates = gpsCoordinates(image);
-                                if (gpsCoordinates != null) {
-                                    media.setLatitude(gpsCoordinates.latitude());
-                                    media.setLongitude(gpsCoordinates.longitude());
 
+                            try (InputStream is = Files.newInputStream(image)) {
+                                Metadata metadata = ImageMetadataReader.readMetadata(is);
+                                Dimensions dimensions = getImageSize(image, metadata);
+                                Location location = getLocation(image, metadata);
+                                LocalDateTime creationTime = creationTime(image, metadata);
 
-                                    HttpClient client = HttpClient.newHttpClient();
-                                    HttpRequest request = HttpRequest.newBuilder()
-                                            .uri(URI.create("https://api.3geonames.org/" + gpsCoordinates.latitude() + "," + gpsCoordinates.longitude()))
-                                            .build();
-                                    client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                                            .thenApply(HttpResponse::body)
-                                            .thenAccept( xml -> {
-                                                String location = xml.substring(xml.indexOf("<state>") + 7, xml.indexOf("</state>"));
-                                                location += ",";
-                                                location += xml.substring(xml.indexOf("<city>") + 6, xml.indexOf("</city>"));
-                                                media.setLocation(location);
-                                            })
-                                            .join();
-
+                                final boolean success = createThumbnail(image, hash, dimensions);
+                                if (success) {
+                                    counter.incrementAndGet();
+                                    Media media = new Media(hash, filename, creationTime, location);
+                                    em.persist(media);
                                 }
-                                em.persist(media);
                             }
                         }
                     } catch (Exception e) {
@@ -115,6 +104,7 @@ public class Initializr implements ApplicationRunner {
         System.out.println("Converted " + counter + " images to thumbnails. Took " + ((end - start) * 0.001) + "seconds");
     }
 
+
     private static boolean isImage(Path path) {
         try {
             String mimeType = Files.probeContentType(path);
@@ -124,49 +114,77 @@ public class Initializr implements ApplicationRunner {
         }
     }
 
+    private static Location getLocation(Path file, Metadata metadata) {
+        Collection<GpsDirectory> directoriesOfType = metadata.getDirectoriesOfType(GpsDirectory.class);
 
-    private static Media.GPSCoordinates gpsCoordinates(Path file) {
-        try (InputStream is = Files.newInputStream(file)) {
-            Metadata metadata = ImageMetadataReader.readMetadata(is);
-            Collection<GpsDirectory> directoriesOfType = metadata.getDirectoriesOfType(GpsDirectory.class);
+        if (!directoriesOfType.isEmpty()) {
+            StringBuilder result = new StringBuilder();
+            GpsDirectory gpsDirectory = directoriesOfType.iterator().next();
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.3geonames.org/" + gpsDirectory.getGeoLocation().getLatitude() + "," + gpsDirectory.getGeoLocation().getLongitude()))
+                    .build();
+            client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenApply(HttpResponse::body)
+                    .thenAccept(xml -> {
+                        String location = xml.substring(xml.indexOf("<state>") + 7, xml.indexOf("</state>"));
+                        location += ",";
+                        location += xml.substring(xml.indexOf("<city>") + 6, xml.indexOf("</city>"));
+                        result.append(location);
+                    })
+                    .join();
 
-            if (!directoriesOfType.isEmpty()) {
-                GpsDirectory gpsDirectory = directoriesOfType.iterator().next();
-                return new Media.GPSCoordinates(gpsDirectory.getGeoLocation().getLatitude(), gpsDirectory.getGeoLocation().getLongitude());
-            }
-            return null;
-        } catch (IOException | ImageProcessingException e) {
-            e.printStackTrace();
-            return null;
+            return new Location(gpsDirectory.getGeoLocation().getLatitude(), gpsDirectory.getGeoLocation().getLongitude(), result.toString());
         }
+        return null;
     }
 
-    private static LocalDateTime creationTime(Path file) {
-        try {
+    record Dimensions(int width, int height) {
+    }
 
-            try (InputStream is = Files.newInputStream(file)) {
-                Metadata metadata = ImageMetadataReader.readMetadata(is);
 
-                Collection<ExifIFD0Directory> directoriesOfType = metadata.getDirectoriesOfType(ExifIFD0Directory.class);
-
-                if (!directoriesOfType.isEmpty()) {
-                    ExifIFD0Directory exifIFD0Directory = directoriesOfType.iterator().next();
-                    Date creatioDate = exifIFD0Directory.getDate(306);
-                    LocalDateTime date = creatioDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime(); // wrong
-                    return date;
+    private static Dimensions getImageSize(Path image, Metadata metadata) {
+        Iterable<Directory> directories = metadata.getDirectories();
+        for (Directory d : directories) {
+            try {
+                if (d instanceof PngDirectory && ((PngDirectory) d).getPngChunkType().equals(PngChunkType.IHDR)) {
+                    int width = d.getInt(1);
+                    int height = d.getInt(2);
+                    return new Dimensions(width, height);
+                } else if (d instanceof ExifIFD0Directory) {
+                    int width = d.getInt(256);
+                    int height = d.getInt(257);
+                    return new Dimensions(width, height);
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
+        }
+        System.err.println("I unfortunately don't understand the image YET: " + image.toAbsolutePath());
+        return new Dimensions(0, 0);
+    }
 
+    private static LocalDateTime creationTime(Path file, Metadata metadata) {
+        ExifIFD0Directory exifIFD0Directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
+
+        if (exifIFD0Directory != null) {
+            Date creatioDate = exifIFD0Directory.getDate(306);
+            LocalDateTime date = creatioDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime(); // wrong
+            return date;
+        }
+
+        try {
             BasicFileAttributes attr = Files.readAttributes(file, BasicFileAttributes.class);
             FileTime fileTime = attr.creationTime();
             return LocalDateTime.ofInstant(fileTime.toInstant(), ZoneId.systemDefault());
-        } catch (Exception e) {
+        } catch (IOException e) {
             e.printStackTrace();
-            return null;
         }
+
+        return LocalDateTime.now();
     }
 
-    private boolean createThumbnail(Path image, String hash) {
+    private boolean createThumbnail(Path image, String hash, Dimensions dimensions) {
         try {
             Path thumbnail = getThumbnailPath(hash);
             return imageMagick.createThumbnail(image, thumbnail);
