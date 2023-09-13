@@ -177,7 +177,6 @@ public class Initializr implements ApplicationRunner {
             LocalDateTime date = creatioDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime(); // wrong
             return date;
         }
-
         try {
             BasicFileAttributes attr = Files.readAttributes(file, BasicFileAttributes.class);
             FileTime fileTime = attr.creationTime();

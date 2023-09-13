@@ -12,6 +12,7 @@ java {
 }
 
 ext['hibernate.version'] = '6.3.0.CR1'
+ext['h2.version'] = '2.1.210'
 
 repositories {
     mavenLocal()

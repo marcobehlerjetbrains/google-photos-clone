@@ -8,3 +8,5 @@ create table if not exists media
     latitude DECIMAL(15,10) default 0.0,
     longitude DECIMAL(15,10) default 0.0
 );
+
+CREATE INDEX if not exists media_dtid ON media (creation_date, id)
