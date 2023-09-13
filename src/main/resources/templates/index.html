@@ -4,33 +4,35 @@
     <meta charset="UTF-8">
     <title>Title</title>
 
-
+    <script src="https://unpkg.com/htmx.org@1.9.5"
+            integrity="sha384-xcuj3WpfgjlKF+FXhSQFQ0ZNr39ln+hwjN3npfM9VBnUskLolQAcN80McRIVOPuO"
+            crossorigin="anonymous"></script>
     <style type="text/css">
         .header {
-            font-family: Roboto,Arial,sans-serif;
+            font-family: Roboto, Arial, sans-serif;
             line-height: 1.25rem;
             font-size: .875rem;
             letter-spacing: .0178571429em;
             font-weight: 500;
-            color: rgb(60,64,67);
+            color: rgb(60, 64, 67);
         }
 
         .img {
             padding: 2px;
         }
 
-        .img::after{
-            transition: opacity .135s cubic-bezier(0,0,.2,1);
+        .img::after {
+            transition: opacity .135s cubic-bezier(0, 0, .2, 1);
             opacity: 0;
         }
 
         .location {
-            font-family: Roboto,Arial,sans-serif;
+            font-family: Roboto, Arial, sans-serif;
             line-height: 1.25rem;
             font-size: .875rem;
             letter-spacing: .0142857143em;
             font-weight: 400;
-            color: rgb(128,134,139);
+            color: rgb(128, 134, 139);
             cursor: pointer;
             margin-left: 6px;
             padding: 16px 0 16px 6px;
@@ -40,9 +42,15 @@
 </head>
 <body>
 
-<div th:each="entry: ${images.entrySet()}">
-    <h2 class="header"><span  th:text="${#temporals.format(entry.key,'EEE, dd MMM yyyy')}">[Date]</span><span class="location" th:text="${T(com.jetbrains.marcocodes.googlephotosclone.Media).locationsToString(entry.value)}">Location</span></h2>
-  <img th:each="image: ${entry.value}"  class="img" lazy="true" th:title="${'Longitude: ' + image.location?.longitude + ' | Latitude: ' + image.location?.latitude + ' | Location: ' + image.location?.country + ',' + image.location?.city}" th:src="${'/a/' + image.hash}" >
+<div th:each="entry, dateStatus: ${images.entrySet()}" th:remove="tag">
+    <h2 class="header" th:if="${param.date == null || (!#temporals.format(entry.key,'yyyyMMdd').equals(param.date[0].substring(0, 8)))}"><span th:text="${#temporals.format(entry.key,'EEE, dd MMM yyyy')}">[Date]</span><span
+            class="location"
+            th:text="${T(com.jetbrains.marcocodes.googlephotosclone.Media).locationsToString(entry.value)}">Location</span>
+    </h2>
+    <img th:each="image, status: ${entry.value}" class="img"
+         th:title="${'Longitude: ' + image.longitude + ' | Latitude: ' + image.latitude + ' | Location: ' + image.location}"
+         th:attrappend="hx-trigger=${dateStatus.last && status.last}?'revealed',hx-swap=${dateStatus.last && status.last}?'afterend',hx-get=${dateStatus.last && status.last}?${'/?date=' + #temporals.format(image.creationDate, 'yyyyMMddHHmmss') + '&id='+ image.id}"
+         th:src="${'/a/' + image.hash}">
 </div>
 
 </body>

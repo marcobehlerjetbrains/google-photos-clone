@@ -204,7 +204,6 @@ public class Initializr implements ApplicationRunner {
             Date gpsDate = firstDirectoryOfType.getGpsDate();
             return gpsDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime();
         }
-
         try {
             BasicFileAttributes attr = Files.readAttributes(image, BasicFileAttributes.class);
             FileTime fileTime = attr.creationTime();
