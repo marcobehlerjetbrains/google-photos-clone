@@ -6,6 +6,7 @@ import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.exif.ExifIFD0Directory;
 import com.drew.metadata.exif.GpsDirectory;
+import com.drew.metadata.jpeg.JpegDirectory;
 import com.drew.metadata.png.PngDirectory;
 import io.github.rctcwyvrn.blake3.Blake3;
 import jakarta.persistence.EntityManagerFactory;
@@ -151,9 +152,13 @@ public class Initializr implements ApplicationRunner {
                     int width = d.getInt(1);
                     int height = d.getInt(2);
                     return new Dimensions(width, height);
-                } else if (d instanceof ExifIFD0Directory) {
+                } else if (d instanceof ExifIFD0Directory && d.containsTag(256) && d.containsTag(257)) {
                     int width = d.getInt(256);
                     int height = d.getInt(257);
+                    return new Dimensions(width, height);
+                } else if (d instanceof JpegDirectory && d.containsTag(3) && d.containsTag(1)) {
+                    int width = d.getInt(3);
+                    int height = d.getInt(1);
                     return new Dimensions(width, height);
                 }
             } catch (Exception e) {
