@@ -1,6 +1,7 @@
 package com.jetbrains.marcocodes.googlephotosclone;
 
 import com.drew.imaging.ImageMetadataReader;
+import com.drew.imaging.ImageProcessingException;
 import com.drew.imaging.png.PngChunkType;
 import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
@@ -11,6 +12,7 @@ import com.drew.metadata.png.PngDirectory;
 import io.github.rctcwyvrn.blake3.Blake3;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.SessionFactory;
+import org.hibernate.query.NativeQuery;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
@@ -27,13 +29,13 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Date;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Component
@@ -53,6 +55,8 @@ public class Initializr implements ApplicationRunner {
         this.emf = emf;
     }
 
+
+    record ExistingMedia(String filename, String hash) {}
     @Override
     public void run(ApplicationArguments args) throws Exception {
         Files.createDirectories(thumbnailsDir);
@@ -63,19 +67,56 @@ public class Initializr implements ApplicationRunner {
         AtomicInteger counter = new AtomicInteger();
         long start = System.currentTimeMillis();
 
-        ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-        try (Stream<Path> images = Files.walk(sourceDir)
+        try (Stream<Path> fileStream = Files.walk(sourceDir)
                 .filter(Files::isRegularFile)
-                .filter(Initializr::isImage);
-        ) {
-            images.forEach(image -> executorService.submit(() -> {
-                emf.unwrap(SessionFactory.class).inTransaction(em -> {
-                    try {
-                        String hash = hash(image);
-                        String filename = image.getFileName().toString();
+                .filter(Initializr::isImage)
+                .parallel()) {
 
-                        if (!queries_.existsByFilenameAndHash(filename, hash)) {
+            List<Path> fileset = fileStream.collect(Collectors.toList());
 
+            int partitionSize = Math.min(fileset.size() / Runtime.getRuntime().availableProcessors(), 50);
+            List<List<Path>> partitions = partition(fileset, partitionSize);
+            ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+            partitions.forEach(p -> {
+                executorService.submit(() -> {
+
+                    emf.unwrap(SessionFactory.class).inTransaction(em -> {
+                        Map<Path, String> filesToHashes = p.stream().collect(Collectors.toMap(f -> f, Initializr::hash));
+                        // only do the ones who don't need doing
+
+                        StringBuilder builder = new StringBuilder();
+                        Iterator<Map.Entry<Path, String>> iterator = filesToHashes.entrySet().iterator();
+                        while (iterator.hasNext()) {
+                            Map.Entry<Path, String> entry = iterator.next();
+                            builder.append("('").append(entry.getKey().getFileName().toString()).append("','").append(entry.getValue()).append("')");
+                            if (iterator.hasNext()) builder.append(",");
+                        }
+
+                        String ququ = "WITH media_batch AS (\n" +
+                                "    SELECT filename, hash\n" +
+                                "    FROM (\n" +
+                                "        VALUES " + builder.toString() + ")" +
+                                "        v(filename,hash)\n" +
+                                ")" +
+                                "select filename, hash from media_batch" +
+                                " where not exists(" +
+                                "    select * from MEDIA m where m.filename = media_batch.filename and m.hash = media_batch.hash" +
+                                ")" +
+                                "\n";
+
+                        NativeQuery<ExistingMedia> nativeQuery = em.createNativeQuery(ququ, ExistingMedia.class);
+                        Map<String, String> collect = nativeQuery.getResultList().stream().collect(Collectors.toMap(non -> non.filename, non -> non.hash));
+
+                        filesToHashes
+                                .entrySet()
+                                .stream()
+                                .filter(entry -> {
+                                    Path fileName = entry.getKey().getFileName();
+                                    return collect.containsKey(fileName.toString()) && collect.get(fileName.toString()).equals(entry.getValue());
+                                })
+                                .forEach((entry) -> {
+                                    var image = entry.getKey();
+                                    var hash = entry.getValue();
                             try (InputStream is = Files.newInputStream(image)) {
                                 Metadata metadata = ImageMetadataReader.readMetadata(is);
                                 Dimensions dimensions = getImageSize(image, metadata);
@@ -85,26 +126,39 @@ public class Initializr implements ApplicationRunner {
                                 final boolean success = createThumbnail(image, hash, dimensions);
                                 if (success) {
                                     counter.incrementAndGet();
-                                    Media media = new Media(hash, filename, creationTime, location);
+                                    Media media = new Media(hash, image.getFileName().toString(), creationTime, location);
                                     em.persist(media);
                                 }
+                            } catch (IOException | ImageProcessingException e) {
+                                throw new RuntimeException(e);
                             }
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                        });
+                    });
                 });
+            });
 
-
-            }));
+            executorService.shutdown();
+            executorService.awaitTermination(3, TimeUnit.HOURS);
+            long end = System.currentTimeMillis();
+            System.out.println("Calculated all hashes " + ((end - start) * 0.001) + "seconds");
         }
-        executorService.shutdown();
-        executorService.awaitTermination(3, TimeUnit.HOURS);
+
+
 
         long end = System.currentTimeMillis();
         System.out.println("Converted " + counter + " images to thumbnails. Took " + ((end - start) * 0.001) + "seconds");
     }
 
+
+    private List<List<Path>> partition(List<Path> original, int size) {
+        List<List<Path>> partitions = new ArrayList<>();
+
+        for (int i = 0; i < original.size(); i += size) {
+            partitions.add(original.subList(i, Math.min(i + size, original.size())));
+        }
+
+        return partitions;
+    }
 
     private static boolean isImage(Path path) {
         try {

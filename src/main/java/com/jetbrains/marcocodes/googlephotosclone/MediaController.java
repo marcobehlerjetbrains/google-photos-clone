@@ -56,6 +56,7 @@ public class MediaController {
                 restrict(lessThan(root.get(Media_.id), id));
             }
         }};
+
         List<Media> media = entityManager.createQuery(query).getResultList();
         media.forEach(m -> {
             LocalDate creationDate = m.getCreationDate().toLocalDate();
