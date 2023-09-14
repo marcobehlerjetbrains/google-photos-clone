@@ -44,20 +44,34 @@ public class MediaController {
     public String index(Model model, @RequestParam(required = false) @DateTimeFormat(pattern = "yyyyMMddHHmmss") LocalDateTime date, @RequestParam(required = false) Long id) {
         Map<LocalDate, List<Media>> images = new LinkedHashMap<>();
 
-        var q =
-                "from Media m " +
-                "order by m.creationDate desc, m.id desc " +
-                "fetch first 20 rows only";
-
+        List<Media> media = List.of();
+        if (date == null || id == null) {
+            var q =
+                    "from Media m " +
+                            "order by m.creationDate desc, id desc " +
+                            "fetch first 20 rows only";
+            media = entityManager.createQuery(q, Media.class).getResultList();
+        } else {
+            var q =
+                    "select * from MEDIA m " +
+                            "where (m.creation_date, m.id) < (:date, :id) " +
+                            "order by m.creation_date desc, id desc " +
+                            "fetch first 20 rows only";
+            media = entityManager.createNativeQuery(q, Media.class)
+                    .setParameter("date", date)
+                    .setParameter("id", id)
+                    .getResultList();
+        }
+/*
         CriteriaQuery<Media> query = new CriteriaDefinition<>(entityManager, Media.class, q) {{
             Root<Media> root = (Root<Media>) getRootList().get(0); // a bit ugly
             if (date != null && id != null) {
                 restrict(lessThan(root.get(Media_.creationDate), date));
                 restrict(lessThan(root.get(Media_.id), id));
             }
-        }};
+        }};*/
 
-        List<Media> media = entityManager.createQuery(query).getResultList();
+
         media.forEach(m -> {
             LocalDate creationDate = m.getCreationDate().toLocalDate();
             images.putIfAbsent(creationDate, new ArrayList<>());
