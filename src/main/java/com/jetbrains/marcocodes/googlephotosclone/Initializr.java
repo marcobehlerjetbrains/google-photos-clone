@@ -163,7 +163,7 @@ public class Initializr implements ApplicationRunner {
     private static boolean isImage(Path path) {
         try {
             String mimeType = Files.probeContentType(path);
-            return mimeType != null && mimeType.contains("image");
+            return (mimeType != null && mimeType.contains("image")) || path.getFileName().toString().toLowerCase().endsWith(".jpg");
         } catch (IOException e) {
             return false;
         }
