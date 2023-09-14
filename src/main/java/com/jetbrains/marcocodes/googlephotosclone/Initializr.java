@@ -11,6 +11,7 @@ import com.drew.metadata.jpeg.JpegDirectory;
 import com.drew.metadata.png.PngDirectory;
 import io.github.rctcwyvrn.blake3.Blake3;
 import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.Tuple;
 import org.hibernate.SessionFactory;
 import org.hibernate.query.NativeQuery;
 import org.springframework.boot.ApplicationArguments;
@@ -56,7 +57,7 @@ public class Initializr implements ApplicationRunner {
     }
 
 
-    record ExistingMedia(String filename, String hash) {}
+
     @Override
     public void run(ApplicationArguments args) throws Exception {
         Files.createDirectories(thumbnailsDir);
@@ -104,8 +105,8 @@ public class Initializr implements ApplicationRunner {
                                 ")" +
                                 "\n";
 
-                        NativeQuery<ExistingMedia> nativeQuery = em.createNativeQuery(ququ, ExistingMedia.class);
-                        Map<String, String> collect = nativeQuery.getResultList().stream().collect(Collectors.toMap(non -> non.filename, non -> non.hash));
+                        NativeQuery<Tuple> nativeQuery = em.createNativeQuery(ququ, Tuple.class);
+                        Map<String, String> collect = nativeQuery.getResultList().stream().collect(Collectors.toMap(non -> non.get(Media_.FILENAME, String.class), non -> non.get(Media_.HASH, String.class)));
 
                         filesToHashes
                                 .entrySet()
@@ -145,8 +146,7 @@ public class Initializr implements ApplicationRunner {
 
 
 
-        long end = System.currentTimeMillis();
-        System.out.println("Converted " + counter + " images to thumbnails. Took " + ((end - start) * 0.001) + "seconds");
+
     }
 
 
