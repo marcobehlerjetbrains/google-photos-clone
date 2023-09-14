@@ -3,6 +3,7 @@ package com.jetbrains.marcocodes.googlephotosclone;
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.imaging.ImageProcessingException;
 import com.drew.imaging.png.PngChunkType;
+import com.drew.lang.GeoLocation;
 import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.exif.ExifIFD0Directory;
@@ -130,8 +131,8 @@ public class Initializr implements ApplicationRunner {
                                     Media media = new Media(hash, image.getFileName().toString(), creationTime, location);
                                     em.persist(media);
                                 }
-                            } catch (IOException | ImageProcessingException e) {
-                                throw new RuntimeException(e);
+                            } catch (Exception e) {
+                                e.printStackTrace();
                             }
                         });
                     });
@@ -176,20 +177,26 @@ public class Initializr implements ApplicationRunner {
             StringBuilder result = new StringBuilder();
             GpsDirectory gpsDirectory = directoriesOfType.iterator().next();
             HttpClient client = HttpClient.newHttpClient();
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://api.3geonames.org/" + gpsDirectory.getGeoLocation().getLatitude() + "," + gpsDirectory.getGeoLocation().getLongitude()))
-                    .build();
-            client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                    .thenApply(HttpResponse::body)
-                    .thenAccept(xml -> {
-                        String location = xml.substring(xml.indexOf("<state>") + 7, xml.indexOf("</state>"));
-                        location += ",";
-                        location += xml.substring(xml.indexOf("<city>") + 6, xml.indexOf("</city>"));
-                        result.append(location);
-                    })
-                    .join();
+            GeoLocation geoLocation = gpsDirectory.getGeoLocation();
 
-            return new Location(gpsDirectory.getGeoLocation().getLatitude(), gpsDirectory.getGeoLocation().getLongitude(), result.toString());
+            if (geoLocation != null) {
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create("https://api.3geonames.org/" + geoLocation.getLatitude() + "," + geoLocation.getLongitude()))
+                        .build();
+                client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                        .thenApply(HttpResponse::body)
+                        .thenAccept(xml -> {
+                            String location = xml.substring(xml.indexOf("<state>") + 7, xml.indexOf("</state>"));
+                            location += ",";
+                            location += xml.substring(xml.indexOf("<city>") + 6, xml.indexOf("</city>"));
+                            result.append(location);
+                        })
+                        .join();
+
+                return new Location(geoLocation.getLatitude(), geoLocation.getLongitude(), result.toString());
+            }
+
+
         }
         return null;
     }
@@ -228,8 +235,11 @@ public class Initializr implements ApplicationRunner {
 
         if (exifIFD0Directory != null) {
             Date creatioDate = exifIFD0Directory.getDate(306);
-            LocalDateTime date = creatioDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime(); // wrong
-            return date;
+            if (creatioDate != null) {
+                LocalDateTime date = creatioDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime(); // wrong
+                return date;
+            }
+
         }
         try {
             BasicFileAttributes attr = Files.readAttributes(file, BasicFileAttributes.class);
