@@ -27,7 +27,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     // https://mvnrepository.com/artifact/com.h2database/h2
-    runtimeOnly group: 'com.h2database', name: 'h2', version: '2.2.220'
+    runtimeOnly group: 'com.h2database', name: 'h2'
     annotationProcessor 'org.hibernate.orm:hibernate-jpamodelgen'
 // https://mvnrepository.com/artifact/io.github.classgraph/classgraph
     testImplementation group: 'io.github.classgraph', name: 'classgraph', version: '4.8.162'
