@@ -38,45 +38,17 @@ public class MediaController {
 
     @GetMapping("/")
     public String index(Model model) {
-        Map<LocalDate, List<Media>> images = new LinkedHashMap<>();
-        var q =
-                "from Media m " +
-                "order by m.creationDate desc, id desc " +
-                "fetch first 20 rows only";
-        List<Media> media = entityManager.createQuery(q, Media.class).getResultList();
-
-        media.forEach(m -> {
-            LocalDate creationDate = m.getCreationDate().toLocalDate();
-            images.putIfAbsent(creationDate, new ArrayList<>());
-            images.get(creationDate).add(m);
-        });
-
+        List<Media> media = queries_.mediaSeek();
         model.addAttribute("archiver", new Archiver());
-        model.addAttribute("images", images);
+        model.addAttribute("images", Media.toMap(media));
         return "index";
     }
 
 
     @GetMapping("/seek")
     public String index(Model model, @RequestParam @DateTimeFormat(pattern = "yyyyMMddHHmmss") LocalDateTime date, @RequestParam Long id) {
-        Map<LocalDate, List<Media>> images = new LinkedHashMap<>();
-        var q =
-                "select * from MEDIA m " +
-                "where (m.creation_date, m.id) < (:date, :id) " +
-                "order by m.creation_date desc, id desc " +
-                "fetch first 20 rows only";
-        List<Media> media = entityManager.createNativeQuery(q, Media.class)
-                .setParameter("date", date)
-                .setParameter("id", id)
-                .getResultList();
-
-        media.forEach(m -> {
-            LocalDate creationDate = m.getCreationDate().toLocalDate();
-            images.putIfAbsent(creationDate, new ArrayList<>());
-            images.get(creationDate).add(m);
-        });
-
-        model.addAttribute("images", images);
+        List<Media> media = queries_.mediaSeek(date, id);
+        model.addAttribute("images", Media.toMap(media));
         return "seek";
     }
 
