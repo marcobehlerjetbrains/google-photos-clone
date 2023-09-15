@@ -2,10 +2,9 @@ package com.jetbrains.marcocodes.googlephotosclone;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Entity
@@ -29,6 +28,17 @@ public class Media {
         this.filename = filename;
         this.creationDate = creationDate;
         this.location = location;
+    }
+
+
+    public static Map<LocalDate, List<Media>> toMap(List<Media> media) {
+        Map<LocalDate, List<Media>> result = new LinkedHashMap<>();
+        media.forEach(m -> {
+            LocalDate creationDate = m.getCreationDate().toLocalDate();
+            result.putIfAbsent(creationDate, new ArrayList<>());
+            result.get(creationDate).add(m);
+        });
+        return result;
     }
 
     public Long getId() {
