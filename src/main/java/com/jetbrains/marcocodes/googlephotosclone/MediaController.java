@@ -10,11 +10,13 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 @Controller
 public class MediaController {
@@ -35,27 +37,13 @@ public class MediaController {
     }
 
     @GetMapping("/")
-    public String index(Model model, @RequestParam(required = false) @DateTimeFormat(pattern = "yyyyMMddHHmmss") LocalDateTime date, @RequestParam(required = false) Long id) {
+    public String index(Model model) {
         Map<LocalDate, List<Media>> images = new LinkedHashMap<>();
-
-        List<Media> media = List.of();
-        if (date == null || id == null) {
-            var q =
-                    "from Media m " +
-                            "order by m.creationDate desc, id desc " +
-                            "fetch first 20 rows only";
-            media = entityManager.createQuery(q, Media.class).getResultList();
-        } else {
-            var q =
-                    "select * from MEDIA m " +
-                            "where (m.creation_date, m.id) < (:date, :id) " +
-                            "order by m.creation_date desc, id desc " +
-                            "fetch first 20 rows only";
-            media = entityManager.createNativeQuery(q, Media.class)
-                    .setParameter("date", date)
-                    .setParameter("id", id)
-                    .getResultList();
-        }
+        var q =
+                "from Media m " +
+                "order by m.creationDate desc, id desc " +
+                "fetch first 20 rows only";
+        List<Media> media = entityManager.createQuery(q, Media.class).getResultList();
 
         media.forEach(m -> {
             LocalDate creationDate = m.getCreationDate().toLocalDate();
@@ -66,6 +54,30 @@ public class MediaController {
         model.addAttribute("archiver", new Archiver());
         model.addAttribute("images", images);
         return "index";
+    }
+
+
+    @GetMapping("/seek")
+    public String index(Model model, @RequestParam @DateTimeFormat(pattern = "yyyyMMddHHmmss") LocalDateTime date, @RequestParam Long id) {
+        Map<LocalDate, List<Media>> images = new LinkedHashMap<>();
+        var q =
+                "select * from MEDIA m " +
+                "where (m.creation_date, m.id) < (:date, :id) " +
+                "order by m.creation_date desc, id desc " +
+                "fetch first 20 rows only";
+        List<Media> media = entityManager.createNativeQuery(q, Media.class)
+                .setParameter("date", date)
+                .setParameter("id", id)
+                .getResultList();
+
+        media.forEach(m -> {
+            LocalDate creationDate = m.getCreationDate().toLocalDate();
+            images.putIfAbsent(creationDate, new ArrayList<>());
+            images.get(creationDate).add(m);
+        });
+
+        model.addAttribute("images", images);
+        return "seek";
     }
 
     @GetMapping("/a/{hash}")
