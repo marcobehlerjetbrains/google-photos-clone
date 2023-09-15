@@ -8,9 +8,12 @@ import com.drew.metadata.exif.ExifIFD0Directory;
 import com.drew.metadata.exif.GpsDirectory;
 import com.drew.metadata.jpeg.JpegDirectory;
 import com.drew.metadata.png.PngDirectory;
+import com.google.common.collect.Iterators;
 import io.github.rctcwyvrn.blake3.Blake3;
 import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.Tuple;
 import org.hibernate.SessionFactory;
+import org.hibernate.query.NativeQuery;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
@@ -27,13 +30,10 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Date;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Component
@@ -46,11 +46,13 @@ public class Initializr implements ApplicationRunner {
 
     private final EntityManagerFactory emf;
 
+    private final ExecutorService executorService;
 
-    public Initializr(Queries queries_, ImageMagick imageMagick, EntityManagerFactory emf) {
+    public Initializr(Queries queries_, ImageMagick imageMagick, EntityManagerFactory emf, ExecutorService executorService) {
         this.queries_ = queries_;
         this.imageMagick = imageMagick;
         this.emf = emf;
+        this.executorService = executorService;
     }
 
     @Override
@@ -63,46 +65,75 @@ public class Initializr implements ApplicationRunner {
         AtomicInteger counter = new AtomicInteger();
         long start = System.currentTimeMillis();
 
-     /*   ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
         try (Stream<Path> images = Files.walk(sourceDir)
+                .parallel()
                 .filter(Files::isRegularFile)
-                .filter(Initializr::isImage);
+                .filter(Initializr::isImage)
         ) {
-            images.forEach(image -> executorService.submit(() -> {
-                emf.unwrap(SessionFactory.class).inTransaction(em -> {
-                    try {
-                        String hash = hash(image);
-                        String filename = image.getFileName().toString();
+            Iterators.partition(images.iterator(), 50).forEachRemaining(batch -> {
+                executorService.submit(() -> {
+                    emf.unwrap(SessionFactory.class).inStatelessTransaction(statelessSession -> {
+                        Map<Path, String> filesToHashes = batch.stream().collect(Collectors.toMap(f -> f, Initializr::hash));
 
-                        if (!queries_.existsByFilenameAndHash(filename, hash)) {
-
-                            try (InputStream is = Files.newInputStream(image)) {
-                                Metadata metadata = ImageMetadataReader.readMetadata(is);
-                                Dimensions dimensions = getImageSize(image, metadata);
-                                Location location = getLocation(image, metadata);
-                                LocalDateTime creationTime = creationTime(image, metadata);
-
-                                final boolean success = createThumbnail(image, hash, dimensions);
-                                if (success) {
-                                    counter.incrementAndGet();
-                                    Media media = new Media(hash, filename, creationTime, location);
-                                    em.persist(media);
-                                }
-                            }
+                        StringBuilder builder = new StringBuilder();
+                        Iterator<Map.Entry<Path, String>> iterator = filesToHashes.entrySet().iterator();
+                        while (iterator.hasNext()) {
+                            Map.Entry<Path, String> entry = iterator.next();
+                            builder.append("('").append(entry.getKey().getFileName().toString()).append("','").append(entry.getValue()).append("')");
+                            if (iterator.hasNext()) builder.append(",");
                         }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+
+                        String ququ = "WITH media_batch AS (\n" +
+                                      "    SELECT filename, hash\n" +
+                                      "    FROM (\n" +
+                                      "        VALUES " + builder.toString() + ")" +
+                                      "        v(filename,hash)\n" +
+                                      ")" +
+                                      "select filename, hash from media_batch" +
+                                      " where not exists(" +
+                                      "    select * from MEDIA m where m.filename = media_batch.filename and m.hash = media_batch.hash" +
+                                      ")" +
+                                      "\n";
+                        NativeQuery<Tuple> nativeQuery = statelessSession.createNativeQuery(ququ, Tuple.class);
+                        Map<String, String> collect = nativeQuery.getResultList().stream().collect(Collectors.toMap(non -> non.get(Media_.FILENAME, String.class), non -> non.get(Media_.HASH, String.class)));
+
+                        filesToHashes
+                                .entrySet()
+                                .stream()
+                                .filter(entry -> {
+                                    Path fileName = entry.getKey().getFileName();
+                                    return collect.containsKey(fileName.toString()) && collect.get(fileName.toString()).equals(entry.getValue());
+                                })
+                                .forEach((entry) -> {
+                                    var image = entry.getKey();
+                                    var hash = entry.getValue();
+                                    try (InputStream is = Files.newInputStream(image)) {
+                                        Metadata metadata = ImageMetadataReader.readMetadata(is);
+                                        Dimensions dimensions = getImageSize(image, metadata);
+                                        Location location = getLocation(image, metadata);
+                                        LocalDateTime creationTime = creationTime(image, metadata);
+
+                                        final boolean success = createThumbnail(image, hash, dimensions);
+                                        if (success) {
+                                            counter.incrementAndGet();
+                                            Media media = new Media(hash, image.getFileName().toString(), creationTime, location);
+                                            statelessSession.insert(media);
+                                        }
+                                    } catch (Exception e) {
+                                        e.printStackTrace();
+                                    }
+                                });
+
+                    });
                 });
-
-
-            }));
+            });
+            /*images.forEach(image -> emf.unwrap(SessionFactory.class)
+                    .inStatelessSession(session -> session.insert(new MediaTask(image.toAbsolutePath().normalize().toString()))));*/
         }
-        executorService.shutdown();
-        executorService.awaitTermination(3, TimeUnit.HOURS);
-*/
+
+
         long end = System.currentTimeMillis();
-        System.out.println("Converted " + counter + " images to thumbnails. Took " + ((end - start) * 0.001) + "seconds");
+        System.out.println("Scanned " + counter + " images to process. Took " + ((end - start) * 0.001) + "seconds");
     }
 
 
@@ -114,35 +145,6 @@ public class Initializr implements ApplicationRunner {
             return false;
         }
     }
-
-    private static Location getLocation(Path file, Metadata metadata) {
-        Collection<GpsDirectory> directoriesOfType = metadata.getDirectoriesOfType(GpsDirectory.class);
-
-        if (!directoriesOfType.isEmpty()) {
-            StringBuilder result = new StringBuilder();
-            GpsDirectory gpsDirectory = directoriesOfType.iterator().next();
-            HttpClient client = HttpClient.newHttpClient();
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://api.3geonames.org/" + gpsDirectory.getGeoLocation().getLatitude() + "," + gpsDirectory.getGeoLocation().getLongitude()))
-                    .build();
-            client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                    .thenApply(HttpResponse::body)
-                    .thenAccept(xml -> {
-                        String location = xml.substring(xml.indexOf("<state>") + 7, xml.indexOf("</state>"));
-                        location += ",";
-                        location += xml.substring(xml.indexOf("<city>") + 6, xml.indexOf("</city>"));
-                        result.append(location);
-                    })
-                    .join();
-
-            return new Location(gpsDirectory.getGeoLocation().getLatitude(), gpsDirectory.getGeoLocation().getLongitude(), result.toString());
-        }
-        return null;
-    }
-
-    record Dimensions(int width, int height) {
-    }
-
 
     private static Dimensions getImageSize(Path image, Metadata metadata) {
         Iterable<Directory> directories = metadata.getDirectories();
@@ -230,5 +232,38 @@ public class Initializr implements ApplicationRunner {
             return "NA";
         }
     }
+
+
+    private static Location getLocation(Path file, Metadata metadata) {
+        Collection<GpsDirectory> directoriesOfType = metadata.getDirectoriesOfType(GpsDirectory.class);
+
+        if (!directoriesOfType.isEmpty()) {
+            StringBuilder result = new StringBuilder();
+            GpsDirectory gpsDirectory = directoriesOfType.iterator().next();
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.3geonames.org/" + gpsDirectory.getGeoLocation().getLatitude() + "," + gpsDirectory.getGeoLocation().getLongitude()))
+                    .build();
+            client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenApply(HttpResponse::body)
+                    .thenAccept(xml -> {
+                        String location = xml.substring(xml.indexOf("<state>") + 7, xml.indexOf("</state>"));
+                        location += ",";
+                        location += xml.substring(xml.indexOf("<city>") + 6, xml.indexOf("</city>"));
+                        result.append(location);
+                    })
+                    .join();
+
+            return new Location(gpsDirectory.getGeoLocation().getLatitude(), gpsDirectory.getGeoLocation().getLongitude(), result.toString());
+        }
+        return null;
+    }
+
+
+
+
+    record Dimensions(int width, int height) {
+    }
+
 
 }

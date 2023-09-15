@@ -29,6 +29,8 @@ dependencies {
     // https://mvnrepository.com/artifact/com.h2database/h2
     runtimeOnly group: 'com.h2database', name: 'h2'
     annotationProcessor 'org.hibernate.orm:hibernate-jpamodelgen'
+// https://mvnrepository.com/artifact/com.google.guava/guava
+    implementation group: 'com.google.guava', name: 'guava', version: '32.1.2-jre'
 
 
     // https://mvnrepository.com/artifact/com.drewnoakes/metadata-extractor
