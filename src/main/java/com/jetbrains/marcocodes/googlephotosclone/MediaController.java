@@ -1,25 +1,16 @@
 package com.jetbrains.marcocodes.googlephotosclone;
 
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.TypedQuery;
-import jakarta.persistence.criteria.CriteriaQuery;
-import jakarta.persistence.criteria.Root;
-import org.hibernate.Session;
-import org.hibernate.SessionFactory;
-import org.hibernate.query.Order;
-import org.hibernate.query.criteria.CriteriaDefinition;
-import org.hibernate.query.criteria.HibernateCriteriaBuilder;
 import org.springframework.core.io.PathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
-import java.awt.print.Book;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -35,9 +26,12 @@ public class MediaController {
 
     private final EntityManager entityManager;
 
-    public MediaController(Queries queries_, EntityManager entityManager) {
+    private final Archiver archiver;
+
+    public MediaController(Queries queries_, EntityManager entityManager, Archiver archiver) {
         this.queries_ = queries_;
         this.entityManager = entityManager;
+        this.archiver = archiver;
     }
 
     @GetMapping("/")
@@ -69,6 +63,7 @@ public class MediaController {
             images.get(creationDate).add(m);
         });
 
+        model.addAttribute("archiver", new Archiver());
         model.addAttribute("images", images);
         return "index";
     }
@@ -79,5 +74,36 @@ public class MediaController {
         Path media = thumbnailsDir.resolve(hash.substring(0, 2)).resolve(hash.substring(2) + ".webp");
         return new PathResource(media);
     }
+
+
+    @PostMapping("/media/archive")
+    public String archive(Model model) {
+        archiver.run();
+        model.addAttribute("archiver", archiver);
+        return "archive_ui";
+    }
+
+    @GetMapping("/media/archive")
+    public String archiveGet(Model model) {
+        model.addAttribute("archiver", archiver);
+        return "archive_ui";
+    }
+
+    @DeleteMapping("/media/archive")
+    public String delete(Model model) {
+        archiver.reset();
+        model.addAttribute("archiver", archiver);
+        return "archive_ui";
+    }
+
+
+    @GetMapping("/media/archive/file")
+    public ResponseEntity<Resource> dd(String param) {
+        Resource file = new PathResource(Path.of("c:\\tmp\\aaa\\Uganda.zip"));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getFilename() + "\"")
+                .body(file);
+    }
+
 }
 
