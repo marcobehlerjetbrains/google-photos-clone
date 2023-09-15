@@ -22,11 +22,20 @@
 
         .img {
             padding: 2px;
+            background-color: #eeeeee;
+            position: relative;
+            display: inline-block;
         }
 
-        .img::after {
-            transition: opacity .135s cubic-bezier(0, 0, .2, 1);
-            opacity: 0;
+        .img:hover:after {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 80px;
+            background: rgb(2,0,36);
+            background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 100%);
         }
 
         .location {
@@ -54,10 +63,11 @@
             class="location"
             th:text="${T(com.jetbrains.marcocodes.googlephotosclone.Media).locationsToString(entry.value)}">Location</span>
     </h2>
-    <img th:each="image, status: ${entry.value}" class="img"
+    <div th:each="image, status: ${entry.value}" class="img" th:attrappend="hx-trigger=${dateStatus.last && status.last}?'revealed',hx-swap=${dateStatus.last && status.last}?'afterend',hx-get=${dateStatus.last && status.last}?${'/?date=' + #temporals.format(image.creationDate, 'yyyyMMddHHmmss') + '&id='+ image.id}">
+    <img
          th:title="${'Longitude: ' + image.longitude + ' | Latitude: ' + image.latitude + ' | Location: ' + image.location}"
-         th:attrappend="hx-trigger=${dateStatus.last && status.last}?'revealed',hx-swap=${dateStatus.last && status.last}?'afterend',hx-get=${dateStatus.last && status.last}?${'/?date=' + #temporals.format(image.creationDate, 'yyyyMMddHHmmss') + '&id='+ image.id}"
          th:src="${'/a/' + image.hash}">
+    </div>
 </div>
 
 </body>
