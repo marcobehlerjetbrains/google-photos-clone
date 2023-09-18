@@ -69,13 +69,11 @@ public class Initializr implements ApplicationRunner {
                 .filter(Initializr::isImage);
         ) {
             images.forEach(image -> executorService.submit(() -> {
+                String hash = hash(image);
+                String filename = image.getFileName().toString();
                 emf.unwrap(SessionFactory.class).inTransaction(em -> {
-                    try {
-                        String hash = hash(image);
-                        String filename = image.getFileName().toString();
-
-                        if (!queries_.existsByFilenameAndHash(filename, hash)) {
-
+                    if (!queries_.existsByFilenameAndHash(filename, hash)) {
+                        try {
                             try (InputStream is = Files.newInputStream(image)) {
                                 Metadata metadata = ImageMetadataReader.readMetadata(is);
                                 Dimensions dimensions = getImageSize(image, metadata);
@@ -89,10 +87,11 @@ public class Initializr implements ApplicationRunner {
                                     em.persist(media);
                                 }
                             }
+                        } catch (Exception e) {
+                            e.printStackTrace();
                         }
-                    } catch (Exception e) {
-                        e.printStackTrace();
                     }
+
                 });
 
 
