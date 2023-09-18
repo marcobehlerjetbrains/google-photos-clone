@@ -73,21 +73,19 @@ public class Initializr implements ApplicationRunner {
                 String filename = image.getFileName().toString();
 
                 if (!queries_.existsByFilenameAndHash(filename, hash)) {
-                    try {
-                        try (InputStream is = Files.newInputStream(image)) {
-                            Metadata metadata = ImageMetadataReader.readMetadata(is);
-                            Dimensions dimensions = getImageSize(image, metadata);
-                            Location location = getLocation(image, metadata);
-                            LocalDateTime creationTime = creationTime(image, metadata);
+                    try (InputStream is = Files.newInputStream(image)) {
+                        Metadata metadata = ImageMetadataReader.readMetadata(is);
+                        Dimensions dimensions = getImageSize(image, metadata);
+                        Location location = getLocation(image, metadata);
+                        LocalDateTime creationTime = creationTime(image, metadata);
 
-                            final boolean success = createThumbnail(image, hash, dimensions);
-                            if (success) {
-                                counter.incrementAndGet();
-                                emf.unwrap(SessionFactory.class).inTransaction(em -> {
-                                    Media media = new Media(hash, filename, creationTime, location);
-                                    em.persist(media);
-                                });
-                            }
+                        final boolean success = createThumbnail(image, hash, dimensions);
+                        if (success) {
+                            counter.incrementAndGet();
+                            emf.unwrap(SessionFactory.class).inTransaction(em -> {
+                                Media media = new Media(hash, filename, creationTime, location);
+                                em.persist(media);
+                            });
                         }
                     } catch (Exception e) {
                         e.printStackTrace();
