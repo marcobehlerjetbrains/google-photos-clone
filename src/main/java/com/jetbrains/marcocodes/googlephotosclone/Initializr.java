@@ -6,6 +6,7 @@ import com.drew.imaging.png.PngChunkType;
 import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.exif.ExifIFD0Directory;
+import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.exif.GpsDirectory;
 import com.drew.metadata.jpeg.JpegDirectory;
 import com.drew.metadata.png.PngDirectory;
@@ -175,6 +176,21 @@ public class Initializr implements ApplicationRunner {
 
     static LocalDateTime creationTime(Path image, Metadata metadata) {
 
+        ExifSubIFDDirectory exifSubIFDDirectory = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
+        if (exifSubIFDDirectory != null) {
+            Date creatioDate = exifSubIFDDirectory.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL);
+            LocalDateTime date = creatioDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime(); // wrong
+            return date;
+        }
+
+
+        ExifIFD0Directory exifIFD0Directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
+        if (exifIFD0Directory != null) {
+            Date creatioDate = exifIFD0Directory.getDate(ExifIFD0Directory.TAG_DATETIME);
+            LocalDateTime date = creatioDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime(); // wrong
+            return date;
+        }
+
 
         GpsDirectory firstDirectoryOfType = metadata.getFirstDirectoryOfType(GpsDirectory.class);
         if (firstDirectoryOfType != null) {
@@ -183,12 +199,6 @@ public class Initializr implements ApplicationRunner {
             return date;
         }
 
-        ExifIFD0Directory exifIFD0Directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
-        if (exifIFD0Directory != null) {
-            Date creatioDate = exifIFD0Directory.getDate(ExifIFD0Directory.TAG_DATETIME);
-            LocalDateTime date = creatioDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime(); // wrong
-            return date;
-        }
 
         try {
             BasicFileAttributes attr = Files.readAttributes(image, BasicFileAttributes.class);

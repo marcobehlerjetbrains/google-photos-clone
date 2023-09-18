@@ -6,14 +6,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.github.classgraph.ClassGraph;
 import io.github.classgraph.ScanResult;
-import org.assertj.core.internal.Dates;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -31,7 +29,7 @@ public class MediaTest {
 
         try (ScanResult scanResult = new ClassGraph().scan()) {
             scanResult
-                    .getResourcesMatchingPattern(Pattern.compile("image-.+"))
+                    .getResourcesMatchingPattern(Pattern.compile("image-(.*)\\.jpg"))
                     .forEach((resource) -> {
                         result.add(resource.getPath());
                     });
@@ -45,15 +43,13 @@ public class MediaTest {
 
                 TestMetadata testMetadata = new ObjectMapper().registerModule(new JavaTimeModule()).readValue(json, TestMetadata.class);
                 Metadata metadata = ImageMetadataReader.readMetadata(imageStream);
+
                 Initializr.Dimensions dimensions = Initializr.getImageSize(metadata);
-
-                LocalDateTime creationTime = Initializr.creationTime(Path.of(MediaTest.class.getResource("/" + image).getFile().substring(1)), metadata)
-                        .atZone(ZoneId.of("Etc/GMT+2")).withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime();
-
                 assertThat(dimensions.height()).isEqualTo(testMetadata.height());
                 assertThat(dimensions.width()).isEqualTo(testMetadata.width());
 
-                assertThat(creationTime.truncatedTo(ChronoUnit.MINUTES).plusMinutes(1)).isEqualToIgnoringSeconds(testMetadata.date());
+                LocalDateTime creationTime = Initializr.creationTime(Path.of(MediaTest.class.getResource("/" + image).getFile().substring(1)), metadata);
+                assertThat(creationTime.truncatedTo(ChronoUnit.MINUTES)).isEqualToIgnoringSeconds(testMetadata.date());
             }
         })).collect(Collectors.toList());
 
