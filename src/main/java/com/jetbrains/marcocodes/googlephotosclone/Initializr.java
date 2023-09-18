@@ -3,7 +3,6 @@ package com.jetbrains.marcocodes.googlephotosclone;
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.imaging.ImageProcessingException;
 import com.drew.imaging.png.PngChunkType;
-import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.MetadataException;
 import com.drew.metadata.exif.ExifIFD0Directory;
@@ -36,7 +35,6 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Collection;
 import java.util.Date;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -84,7 +82,7 @@ public class Initializr implements ApplicationRunner {
                         Metadata metadata = ImageMetadataReader.readMetadata(is);
                         Dimensions dimensions = getImageSize(metadata);
                         Location location = getLocation(metadata);
-                        LocalDateTime creationTime = creationTime(image, metadata);
+                        LocalDateTime creationTime = getCreationTime(image, metadata);
 
                         final boolean success = createThumbnail(image, hash, dimensions);
                         if (success) {
@@ -179,7 +177,7 @@ public class Initializr implements ApplicationRunner {
         return new Dimensions(0, 0);
     }
 
-    static LocalDateTime creationTime(Path image, Metadata metadata) {
+    static LocalDateTime getCreationTime(Path image, Metadata metadata) {
 
         ExifSubIFDDirectory exifSubIFDDirectory = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
         if (exifSubIFDDirectory != null) {

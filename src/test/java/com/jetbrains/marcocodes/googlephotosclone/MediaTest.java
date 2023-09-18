@@ -48,7 +48,7 @@ public class MediaTest {
                 assertThat(dimensions.height()).isEqualTo(testMetadata.height());
                 assertThat(dimensions.width()).isEqualTo(testMetadata.width());
 
-                LocalDateTime creationTime = Initializr.creationTime(Path.of(MediaTest.class.getResource("/" + image).getFile().substring(1)), metadata);
+                LocalDateTime creationTime = Initializr.getCreationTime(Path.of(MediaTest.class.getResource("/" + image).getFile().substring(1)), metadata);
                 assertThat(creationTime.truncatedTo(ChronoUnit.MINUTES)).isEqualToIgnoringSeconds(testMetadata.date());
 
                 Location location = Initializr.getLocation(metadata);
