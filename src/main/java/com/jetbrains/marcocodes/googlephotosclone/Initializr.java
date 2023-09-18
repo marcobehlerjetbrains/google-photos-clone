@@ -1,6 +1,7 @@
 package com.jetbrains.marcocodes.googlephotosclone;
 
 import com.drew.imaging.ImageMetadataReader;
+import com.drew.imaging.ImageProcessingException;
 import com.drew.imaging.png.PngChunkType;
 import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
@@ -8,7 +9,10 @@ import com.drew.metadata.exif.ExifIFD0Directory;
 import com.drew.metadata.exif.GpsDirectory;
 import com.drew.metadata.jpeg.JpegDirectory;
 import com.drew.metadata.png.PngDirectory;
-import io.github.rctcwyvrn.blake3.Blake3;
+import com.google.common.hash.Funnels;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
+import com.google.common.io.ByteStreams;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.SessionFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -27,7 +31,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.concurrent.ExecutorService;
@@ -75,20 +78,23 @@ public class Initializr implements ApplicationRunner {
                 if (!queries_.existsByFilenameAndHash(filename, hash)) {
                     try (InputStream is = Files.newInputStream(image)) {
                         Metadata metadata = ImageMetadataReader.readMetadata(is);
-                        Dimensions dimensions = getImageSize(image, metadata);
-                        Location location = getLocation(image, metadata);
+                        Dimensions dimensions = getImageSize(metadata);
+                        Location location = getLocation(metadata);
                         LocalDateTime creationTime = creationTime(image, metadata);
 
                         final boolean success = createThumbnail(image, hash, dimensions);
                         if (success) {
                             counter.incrementAndGet();
-                            emf.unwrap(SessionFactory.class).inTransaction(em -> {
+                            emf.unwrap(SessionFactory.class).inStatelessSession(ss -> {
                                 Media media = new Media(hash, filename, creationTime, location);
-                                em.persist(media);
+                                ss.insert(media);
                             });
                         }
-                    } catch (Exception e) {
+                    } catch (ImageProcessingException e) {
                         e.printStackTrace();
+                        // not an image or something else
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
                     }
                 }
 
@@ -112,7 +118,7 @@ public class Initializr implements ApplicationRunner {
         }
     }
 
-    private static Location getLocation(Path file, Metadata metadata) {
+    private static Location getLocation(Metadata metadata) {
         Collection<GpsDirectory> directoriesOfType = metadata.getDirectoriesOfType(GpsDirectory.class);
 
         if (!directoriesOfType.isEmpty()) {
@@ -141,7 +147,7 @@ public class Initializr implements ApplicationRunner {
     }
 
 
-    private static Dimensions getImageSize(Path image, Metadata metadata) {
+    static Dimensions getImageSize(Metadata metadata) {
         Iterable<Directory> directories = metadata.getDirectories();
         for (Directory d : directories) {
             try {
@@ -162,21 +168,18 @@ public class Initializr implements ApplicationRunner {
                 e.printStackTrace();
             }
         }
-        System.err.println("I unfortunately don't understand the image YET: " + image.toAbsolutePath());
         return new Dimensions(0, 0);
     }
 
-    private static LocalDateTime creationTime(Path file, Metadata metadata) {
+    static LocalDateTime creationTime(Path image, Metadata metadata) {
         ExifIFD0Directory exifIFD0Directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
-
         if (exifIFD0Directory != null) {
             Date creatioDate = exifIFD0Directory.getDate(ExifIFD0Directory.TAG_DATETIME);
             LocalDateTime date = creatioDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime(); // wrong
             return date;
         }
-
         try {
-            BasicFileAttributes attr = Files.readAttributes(file, BasicFileAttributes.class);
+            BasicFileAttributes attr = Files.readAttributes(image, BasicFileAttributes.class);
             FileTime fileTime = attr.creationTime();
             return LocalDateTime.ofInstant(fileTime.toInstant(), ZoneId.systemDefault());
         } catch (IOException e) {
@@ -196,7 +199,6 @@ public class Initializr implements ApplicationRunner {
         }
     }
 
-
     private Path getThumbnailPath(String hash) throws IOException {
         String dir = hash.substring(0, 2);
         String filename = hash.substring(2);
@@ -210,23 +212,12 @@ public class Initializr implements ApplicationRunner {
 
 
     public static String hash(Path file) {
-        Blake3 hasher = Blake3.newInstance();
-
-        try (InputStream ios = Files.newInputStream(file)) {
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = ios.read(buffer)) != -1) {
-                if (read == buffer.length) {
-                    hasher.update(buffer);
-                } else {
-                    hasher.update(Arrays.copyOfRange(buffer, 0, read));
-                }
-            }
-            return hasher.hexdigest();
+        try (InputStream fis = Files.newInputStream(file)) {
+            Hasher hasher = Hashing.sha256().newHasher();
+            ByteStreams.copy(fis, Funnels.asOutputStream(hasher));
+            return hasher.hash().toString();
         } catch (IOException e) {
-            e.printStackTrace();
-            return "NA";
+            throw new RuntimeException(e);
         }
     }
-
 }
