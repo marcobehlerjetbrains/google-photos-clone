@@ -78,21 +78,25 @@ public class Initializr implements ApplicationRunner {
                 String filename = image.getFileName().toString();
 
                 if (!queries_.existsByFilenameAndHash(filename, hash)) {
-                    try (InputStream is = Files.newInputStream(image)) {
-                        Path thumbnail = getThumbnailPath(hash);
-                        if (!Files.exists(thumbnail)) {
-                            final boolean success = imageMagick.createThumbnail(image, thumbnail);
-                            if (success) {
-                                Metadata metadata = ImageMetadataReader.readMetadata(is);
-                                Location location = getLocation(metadata);
-                                LocalDateTime creationTime = getCreationTime(image, metadata);
-                                counter.incrementAndGet();
-                                emf.unwrap(SessionFactory.class).inStatelessSession(ss -> {
-                                    Media media = new Media(hash, filename, creationTime, location);
-                                    ss.insert(media);
-                                });
-                            }
+                    Path thumbnail = getThumbnailPath(hash);
+
+                    if (!Files.exists(thumbnail)) {
+                        final boolean success = imageMagick.createThumbnail(image, thumbnail);
+                        if (!success) {
+                            System.err.println("Error creating thumbnail");
+                            return;
                         }
+                    }
+
+                    try (InputStream is = Files.newInputStream(image)) {
+                        Metadata metadata = ImageMetadataReader.readMetadata(is);
+                        Location location = getLocation(metadata);
+                        LocalDateTime creationTime = getCreationTime(image, metadata);
+                        counter.incrementAndGet();
+                        emf.unwrap(SessionFactory.class).inStatelessSession(ss -> {
+                            Media media = new Media(hash, filename, creationTime, location);
+                            ss.insert(media);
+                        });
                     } catch (ImageProcessingException e) {
                         e.printStackTrace();
                         // not an image or something else
@@ -153,7 +157,7 @@ public class Initializr implements ApplicationRunner {
     static Dimensions getImageSize(Metadata metadata) {
         try {
             ExifIFD0Directory exifIfD0Directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
-            if (exifIfD0Directory != null && exifIfD0Directory.containsTag(ExifIFD0Directory.TAG_IMAGE_WIDTH) && exifIfD0Directory.containsTag(ExifIFD0Directory.TAG_IMAGE_HEIGHT) ) {
+            if (exifIfD0Directory != null && exifIfD0Directory.containsTag(ExifIFD0Directory.TAG_IMAGE_WIDTH) && exifIfD0Directory.containsTag(ExifIFD0Directory.TAG_IMAGE_HEIGHT)) {
                 int width = exifIfD0Directory.getInt(PngDirectory.TAG_IMAGE_WIDTH);
                 int height = exifIfD0Directory.getInt(PngDirectory.TAG_IMAGE_HEIGHT);
                 return new Dimensions(width, height);
@@ -211,14 +215,17 @@ public class Initializr implements ApplicationRunner {
     }
 
 
-
-    private Path getThumbnailPath(String hash) throws IOException {
+    private Path getThumbnailPath(String hash) {
         String dir = hash.substring(0, 2);
         String filename = hash.substring(2);
 
         Path storageDir = thumbnailsDir.resolve(dir);
         if (!Files.exists(storageDir)) {
-            Files.createDirectories(storageDir);
+            try {
+                Files.createDirectories(storageDir);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
         return storageDir.resolve(filename + ".webp");
     }
