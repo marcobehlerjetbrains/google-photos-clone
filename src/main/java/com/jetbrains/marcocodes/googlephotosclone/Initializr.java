@@ -31,8 +31,10 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Collection;
 import java.util.Date;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -172,12 +174,22 @@ public class Initializr implements ApplicationRunner {
     }
 
     static LocalDateTime creationTime(Path image, Metadata metadata) {
+
+
+        GpsDirectory firstDirectoryOfType = metadata.getFirstDirectoryOfType(GpsDirectory.class);
+        if (firstDirectoryOfType != null) {
+            Date gpsDate = firstDirectoryOfType.getGpsDate();
+            LocalDateTime date = gpsDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime();
+            return date;
+        }
+
         ExifIFD0Directory exifIFD0Directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
         if (exifIFD0Directory != null) {
             Date creatioDate = exifIFD0Directory.getDate(ExifIFD0Directory.TAG_DATETIME);
-            LocalDateTime date = creatioDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime(); // wrong
+            LocalDateTime date = creatioDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime(); // wrong
             return date;
         }
+
         try {
             BasicFileAttributes attr = Files.readAttributes(image, BasicFileAttributes.class);
             FileTime fileTime = attr.creationTime();
