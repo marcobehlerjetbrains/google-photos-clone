@@ -92,11 +92,11 @@ public class Initializr implements ApplicationRunner {
                         Metadata metadata = ImageMetadataReader.readMetadata(is);
                         Location location = getLocation(metadata);
                         LocalDateTime creationTime = getCreationTime(image, metadata);
-                        counter.incrementAndGet();
                         emf.unwrap(SessionFactory.class).inStatelessSession(ss -> {
                             Media media = new Media(hash, filename, creationTime, location);
                             ss.insert(media);
                         });
+                        counter.incrementAndGet();
                     } catch (ImageProcessingException e) {
                         e.printStackTrace();
                         // not an image or something else
