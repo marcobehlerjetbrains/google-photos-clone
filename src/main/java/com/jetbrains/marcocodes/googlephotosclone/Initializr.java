@@ -79,18 +79,19 @@ public class Initializr implements ApplicationRunner {
 
                 if (!queries_.existsByFilenameAndHash(filename, hash)) {
                     try (InputStream is = Files.newInputStream(image)) {
-                        Metadata metadata = ImageMetadataReader.readMetadata(is);
-                        Dimensions dimensions = getImageSize(metadata);
-                        Location location = getLocation(metadata);
-                        LocalDateTime creationTime = getCreationTime(image, metadata);
-
-                        final boolean success = createThumbnail(image, hash, dimensions);
-                        if (success) {
-                            counter.incrementAndGet();
-                            emf.unwrap(SessionFactory.class).inStatelessSession(ss -> {
-                                Media media = new Media(hash, filename, creationTime, location);
-                                ss.insert(media);
-                            });
+                        Path thumbnail = getThumbnailPath(hash);
+                        if (!Files.exists(thumbnail)) {
+                            final boolean success = imageMagick.createThumbnail(image, thumbnail);
+                            if (success) {
+                                Metadata metadata = ImageMetadataReader.readMetadata(is);
+                                Location location = getLocation(metadata);
+                                LocalDateTime creationTime = getCreationTime(image, metadata);
+                                counter.incrementAndGet();
+                                emf.unwrap(SessionFactory.class).inStatelessSession(ss -> {
+                                    Media media = new Media(hash, filename, creationTime, location);
+                                    ss.insert(media);
+                                });
+                            }
                         }
                     } catch (ImageProcessingException e) {
                         e.printStackTrace();
@@ -209,15 +210,7 @@ public class Initializr implements ApplicationRunner {
         }
     }
 
-    private boolean createThumbnail(Path image, String hash, Dimensions dimensions) {
-        try {
-            Path thumbnail = getThumbnailPath(hash);
-            return imageMagick.createThumbnail(image, thumbnail);
-        } catch (IOException e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
+
 
     private Path getThumbnailPath(String hash) throws IOException {
         String dir = hash.substring(0, 2);
