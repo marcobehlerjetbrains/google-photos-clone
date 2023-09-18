@@ -5,6 +5,7 @@ import com.drew.imaging.ImageProcessingException;
 import com.drew.imaging.png.PngChunkType;
 import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
+import com.drew.metadata.MetadataException;
 import com.drew.metadata.exif.ExifIFD0Directory;
 import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.exif.GpsDirectory;
@@ -151,25 +152,29 @@ public class Initializr implements ApplicationRunner {
 
 
     static Dimensions getImageSize(Metadata metadata) {
-        Iterable<Directory> directories = metadata.getDirectories();
-        for (Directory d : directories) {
-            try {
-                if (d instanceof PngDirectory && ((PngDirectory) d).getPngChunkType().equals(PngChunkType.IHDR)) {
-                    int width = d.getInt(PngDirectory.TAG_IMAGE_WIDTH);
-                    int height = d.getInt(PngDirectory.TAG_IMAGE_HEIGHT);
-                    return new Dimensions(width, height);
-                } else if (d instanceof ExifIFD0Directory && d.containsTag(ExifIFD0Directory.TAG_IMAGE_WIDTH) && d.containsTag(ExifIFD0Directory.TAG_IMAGE_HEIGHT)) {
-                    int width = d.getInt(ExifIFD0Directory.TAG_IMAGE_WIDTH);
-                    int height = d.getInt(ExifIFD0Directory.TAG_IMAGE_HEIGHT);
-                    return new Dimensions(width, height);
-                } else if (d instanceof JpegDirectory && d.containsTag(JpegDirectory.TAG_IMAGE_WIDTH) && d.containsTag(JpegDirectory.TAG_IMAGE_HEIGHT)) {
-                    int width = d.getInt(JpegDirectory.TAG_IMAGE_WIDTH);
-                    int height = d.getInt(JpegDirectory.TAG_IMAGE_HEIGHT);
-                    return new Dimensions(width, height);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
+        try {
+            ExifIFD0Directory exifIfD0Directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
+            if (exifIfD0Directory != null && exifIfD0Directory.containsTag(ExifIFD0Directory.TAG_IMAGE_WIDTH) && exifIfD0Directory.containsTag(ExifIFD0Directory.TAG_IMAGE_HEIGHT) ) {
+                int width = exifIfD0Directory.getInt(PngDirectory.TAG_IMAGE_WIDTH);
+                int height = exifIfD0Directory.getInt(PngDirectory.TAG_IMAGE_HEIGHT);
+                return new Dimensions(width, height);
             }
+
+            PngDirectory pngDirectory = metadata.getFirstDirectoryOfType(PngDirectory.class);
+            if (pngDirectory != null && pngDirectory.getPngChunkType().equals(PngChunkType.IHDR)) {
+                int width = pngDirectory.getInt(ExifIFD0Directory.TAG_IMAGE_WIDTH);
+                int height = pngDirectory.getInt(ExifIFD0Directory.TAG_IMAGE_HEIGHT);
+                return new Dimensions(width, height);
+            }
+
+            JpegDirectory jpegDirectory = metadata.getFirstDirectoryOfType(JpegDirectory.class);
+            if (jpegDirectory != null && jpegDirectory.containsTag(JpegDirectory.TAG_IMAGE_WIDTH) && jpegDirectory.containsTag(JpegDirectory.TAG_IMAGE_HEIGHT)) {
+                int width = jpegDirectory.getInt(JpegDirectory.TAG_IMAGE_WIDTH);
+                int height = jpegDirectory.getInt(JpegDirectory.TAG_IMAGE_HEIGHT);
+                return new Dimensions(width, height);
+            }
+        } catch (MetadataException e) {
+            e.printStackTrace();
         }
         return new Dimensions(0, 0);
     }
@@ -179,26 +184,22 @@ public class Initializr implements ApplicationRunner {
         ExifSubIFDDirectory exifSubIFDDirectory = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
         if (exifSubIFDDirectory != null) {
             Date creatioDate = exifSubIFDDirectory.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL);
-            LocalDateTime date = creatioDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime(); // wrong
-            return date;
+            return creatioDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime();
         }
 
 
         ExifIFD0Directory exifIFD0Directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
         if (exifIFD0Directory != null) {
             Date creatioDate = exifIFD0Directory.getDate(ExifIFD0Directory.TAG_DATETIME);
-            LocalDateTime date = creatioDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime(); // wrong
-            return date;
+            return creatioDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime();
         }
 
 
         GpsDirectory firstDirectoryOfType = metadata.getFirstDirectoryOfType(GpsDirectory.class);
         if (firstDirectoryOfType != null) {
             Date gpsDate = firstDirectoryOfType.getGpsDate();
-            LocalDateTime date = gpsDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime();
-            return date;
+            return gpsDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime();
         }
-
 
         try {
             BasicFileAttributes attr = Files.readAttributes(image, BasicFileAttributes.class);
@@ -206,9 +207,8 @@ public class Initializr implements ApplicationRunner {
             return LocalDateTime.ofInstant(fileTime.toInstant(), ZoneId.systemDefault());
         } catch (IOException e) {
             e.printStackTrace();
+            return LocalDateTime.now();
         }
-
-        return LocalDateTime.now();
     }
 
     private boolean createThumbnail(Path image, String hash, Dimensions dimensions) {
