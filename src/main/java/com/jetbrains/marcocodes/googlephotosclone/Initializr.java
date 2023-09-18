@@ -149,16 +149,16 @@ public class Initializr implements ApplicationRunner {
         for (Directory d : directories) {
             try {
                 if (d instanceof PngDirectory && ((PngDirectory) d).getPngChunkType().equals(PngChunkType.IHDR)) {
-                    int width = d.getInt(1);
-                    int height = d.getInt(2);
+                    int width = d.getInt(PngDirectory.TAG_IMAGE_WIDTH);
+                    int height = d.getInt(PngDirectory.TAG_IMAGE_HEIGHT);
                     return new Dimensions(width, height);
-                } else if (d instanceof ExifIFD0Directory && d.containsTag(256) && d.containsTag(257)) {
-                    int width = d.getInt(256);
-                    int height = d.getInt(257);
+                } else if (d instanceof ExifIFD0Directory && d.containsTag(ExifIFD0Directory.TAG_IMAGE_WIDTH) && d.containsTag(ExifIFD0Directory.TAG_IMAGE_HEIGHT)) {
+                    int width = d.getInt(ExifIFD0Directory.TAG_IMAGE_WIDTH);
+                    int height = d.getInt(ExifIFD0Directory.TAG_IMAGE_HEIGHT);
                     return new Dimensions(width, height);
-                } else if (d instanceof JpegDirectory && d.containsTag(3) && d.containsTag(1)) {
-                    int width = d.getInt(3);
-                    int height = d.getInt(1);
+                } else if (d instanceof JpegDirectory && d.containsTag(JpegDirectory.TAG_IMAGE_WIDTH) && d.containsTag(JpegDirectory.TAG_IMAGE_HEIGHT)) {
+                    int width = d.getInt(JpegDirectory.TAG_IMAGE_WIDTH);
+                    int height = d.getInt(JpegDirectory.TAG_IMAGE_HEIGHT);
                     return new Dimensions(width, height);
                 }
             } catch (Exception e) {
@@ -173,7 +173,7 @@ public class Initializr implements ApplicationRunner {
         ExifIFD0Directory exifIFD0Directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
 
         if (exifIFD0Directory != null) {
-            Date creatioDate = exifIFD0Directory.getDate(306);
+            Date creatioDate = exifIFD0Directory.getDate(ExifIFD0Directory.TAG_DATETIME);
             LocalDateTime date = creatioDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime(); // wrong
             return date;
         }
