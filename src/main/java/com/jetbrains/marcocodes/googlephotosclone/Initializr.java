@@ -121,7 +121,7 @@ public class Initializr implements ApplicationRunner {
         }
     }
 
-    private static Location getLocation(Metadata metadata) {
+    static Location getLocation(Metadata metadata) {
         Collection<GpsDirectory> directoriesOfType = metadata.getDirectoriesOfType(GpsDirectory.class);
 
         if (!directoriesOfType.isEmpty()) {

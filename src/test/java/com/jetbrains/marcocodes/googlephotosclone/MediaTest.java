@@ -50,6 +50,11 @@ public class MediaTest {
 
                 LocalDateTime creationTime = Initializr.creationTime(Path.of(MediaTest.class.getResource("/" + image).getFile().substring(1)), metadata);
                 assertThat(creationTime.truncatedTo(ChronoUnit.MINUTES)).isEqualToIgnoringSeconds(testMetadata.date());
+
+                Location location = Initializr.getLocation(metadata);
+                System.out.println(location);
+
+
             }
         })).collect(Collectors.toList());
 
