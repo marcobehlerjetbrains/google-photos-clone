@@ -17,16 +17,19 @@ public class Media {
     private String filename;
     private LocalDateTime creationDate;
 
+    private String originalFile;
+
     @Embedded
     private Location location;
 
     public Media() {
     }
 
-    public Media(String hash, String filename, LocalDateTime creationDate, Location location) {
+    public Media(String hash, String filename, LocalDateTime creationDate,String originalFile, Location location) {
         this.hash = hash;
         this.filename = filename;
         this.creationDate = creationDate;
+        this.originalFile = originalFile;
         this.location = location;
     }
 
@@ -67,6 +70,14 @@ public class Media {
 
     public LocalDateTime getCreationDate() {
         return creationDate;
+    }
+
+    public String getOriginalFile() {
+        return originalFile;
+    }
+
+    public void setOriginalFile(String originalFile) {
+        this.originalFile = originalFile;
     }
 
     public void setCreationDate(LocalDateTime creationDate) {
