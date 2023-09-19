@@ -12,11 +12,11 @@
                 class="location"
                 th:text="${T(com.jetbrains.marcocodes.googlephotosclone.Media).locationsToString(entry.value)}">Location</span>
         </h2>
-        <div th:each="image, status: ${entry.value}" class="img" th:attrappend="hx-trigger=${dateStatus.last && status.last}?'revealed',hx-swap=${dateStatus.last && status.last}?'afterend',hx-get=${dateStatus.last && status.last}?${'/seek?date=' + #temporals.format(image.creationDate, 'yyyyMMddHHmmss') + '&id='+ image.id}">
+        <a th:href="${'/a/' + image.hash}" data-gallery="gallery1"  th:each="image, status: ${entry.value}" class="img glightbox" th:attrappend="hx-trigger=${dateStatus.last && status.last}?'revealed',hx-swap=${dateStatus.last && status.last}?'afterend',hx-get=${dateStatus.last && status.last}?${'/seek?date=' + #temporals.format(image.creationDate, 'yyyyMMddHHmmss') + '&id='+ image.id}">
             <img
                     th:title="${'Longitude: ' + image.location?.longitude + ' | Latitude: ' + image.location?.latitude + ' | Location: ' + image.location?.city + ',' + image.location?.country}"
                     th:src="${'/a/' + image.hash}">
-        </div>
+        </a>
     </div>
 </div>
 </body>
