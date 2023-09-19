@@ -158,15 +158,15 @@ public class Initializr implements ApplicationRunner {
         try {
             ExifIFD0Directory exifIfD0Directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
             if (exifIfD0Directory != null && exifIfD0Directory.containsTag(ExifIFD0Directory.TAG_IMAGE_WIDTH) && exifIfD0Directory.containsTag(ExifIFD0Directory.TAG_IMAGE_HEIGHT)) {
-                int width = exifIfD0Directory.getInt(PngDirectory.TAG_IMAGE_WIDTH);
-                int height = exifIfD0Directory.getInt(PngDirectory.TAG_IMAGE_HEIGHT);
+                int width = exifIfD0Directory.getInt(ExifIFD0Directory.TAG_IMAGE_WIDTH);
+                int height = exifIfD0Directory.getInt(ExifIFD0Directory.TAG_IMAGE_HEIGHT);
                 return new Dimensions(width, height);
             }
 
             PngDirectory pngDirectory = metadata.getFirstDirectoryOfType(PngDirectory.class);
             if (pngDirectory != null && pngDirectory.getPngChunkType().equals(PngChunkType.IHDR)) {
-                int width = pngDirectory.getInt(ExifIFD0Directory.TAG_IMAGE_WIDTH);
-                int height = pngDirectory.getInt(ExifIFD0Directory.TAG_IMAGE_HEIGHT);
+                int width = pngDirectory.getInt(PngDirectory.TAG_IMAGE_WIDTH);
+                int height = pngDirectory.getInt(PngDirectory.TAG_IMAGE_HEIGHT);
                 return new Dimensions(width, height);
             }
 
