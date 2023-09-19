@@ -39,6 +39,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 @Component
@@ -129,24 +130,26 @@ public class Initializr implements ApplicationRunner {
         Collection<GpsDirectory> directoriesOfType = metadata.getDirectoriesOfType(GpsDirectory.class);
 
         if (!directoriesOfType.isEmpty()) {
-            StringBuilder result = new StringBuilder();
+
             GpsDirectory gpsDirectory = directoriesOfType.iterator().next();
             HttpClient client = HttpClient.newHttpClient();
+            double latitude = gpsDirectory.getGeoLocation().getLatitude();
+            double longitude = gpsDirectory.getGeoLocation().getLongitude();
+            String dms = gpsDirectory.getGeoLocation().toDMSString();
+            AtomicReference<String> state = new AtomicReference<>("UNKNOWN");
+            AtomicReference<String> city = new AtomicReference<>("UNKNOWN");
+
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://api.3geonames.org/" + gpsDirectory.getGeoLocation().getLatitude() + "," + gpsDirectory.getGeoLocation().getLongitude()))
+                    .uri(URI.create("https://api.3geonames.org/" + latitude + "," + longitude))
                     .build();
             client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                     .thenApply(HttpResponse::body)
                     .thenAccept(xml -> {
-                        String location = xml.substring(xml.indexOf("<state>") + 7, xml.indexOf("</state>"));
-                        location += ",";
-                        location += xml.substring(xml.indexOf("<city>") + 6, xml.indexOf("</city>"));
-                        result.append(location);
+                        state.set(xml.substring(xml.indexOf("<state>") + 7, xml.indexOf("</state>")));
+                        city.set(xml.substring(xml.indexOf("<city>") + 6, xml.indexOf("</city>")));
                     })
                     .join();
-
-
-            return new Location(gpsDirectory.getGeoLocation().getLatitude(), gpsDirectory.getGeoLocation().getLongitude(), result.toString(), gpsDirectory.getGeoLocation().toDMSString());
+            return new Location(latitude, longitude, state.get(), city.get(), dms);
         }
         return null;
     }

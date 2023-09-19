@@ -57,7 +57,7 @@ public class MediaTest {
                     assertThat(location).isNull();
                 }
                 else {
-                    assertThat(location.dms()).isEqualTo(testMetadata.latitude() + ", " + testMetadata.longitude());
+                    assertThat(location.getDms()).isEqualTo(testMetadata.latitude() + ", " + testMetadata.longitude());
                 }
 
 

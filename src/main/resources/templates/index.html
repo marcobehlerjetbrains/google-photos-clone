@@ -42,7 +42,7 @@
 
 <div th:each="entry: ${images.entrySet()}">
     <h2 class="header"><span  th:text="${#temporals.format(entry.key,'EEE, dd MMM yyyy')}">[Date]</span><span class="location" th:text="${T(com.jetbrains.marcocodes.googlephotosclone.Media).locationsToString(entry.value)}">Location</span></h2>
-  <img th:each="image: ${entry.value}"  class="img" lazy="true" th:title="${'Longitude: ' + image.longitude + ' | Latitude: ' + image.latitude + ' | Location: ' + image.location}" th:src="${'/a/' + image.hash}" >
+  <img th:each="image: ${entry.value}"  class="img" lazy="true" th:title="${'Longitude: ' + image.location?.longitude + ' | Latitude: ' + image.location?.latitude + ' | Location: ' + image.location?.country + ',' + image.location?.city}" th:src="${'/a/' + image.hash}" >
 </div>
 
 </body>
