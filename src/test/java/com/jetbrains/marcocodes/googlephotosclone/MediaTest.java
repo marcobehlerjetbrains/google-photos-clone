@@ -54,7 +54,7 @@ public class MediaTest {
                 Location location = Initializr.getLocation(metadata);
 
                 if (testMetadata.longitude() == null || testMetadata.latitude() == null) {
-                    assertThat(location.dms()).isBlank();
+                    assertThat(location).isNull();
                 }
                 else {
                     assertThat(location.dms()).isEqualTo(testMetadata.latitude() + ", " + testMetadata.longitude());
