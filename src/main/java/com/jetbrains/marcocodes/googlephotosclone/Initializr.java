@@ -69,7 +69,7 @@ public class Initializr implements ApplicationRunner {
         AtomicInteger counter = new AtomicInteger();
         long start = System.currentTimeMillis();
 
-     /*   ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
         try (Stream<Path> images = Files.walk(sourceDir)
                 .filter(Files::isRegularFile)
                 .filter(Initializr::isImage);
@@ -111,7 +111,7 @@ public class Initializr implements ApplicationRunner {
         }
         executorService.shutdown();
         executorService.awaitTermination(3, TimeUnit.HOURS);
-*/
+
         long end = System.currentTimeMillis();
         System.out.println("Converted " + counter + " images to thumbnails. Took " + ((end - start) * 0.001) + "seconds");
     }

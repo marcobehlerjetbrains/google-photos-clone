@@ -87,7 +87,7 @@ public class Media {
             if (location == null) {
                 return "Unknown";
             }
-            return location.getCountry() + " ," + location.getCity();
+            return location.getCountry() + ", " + location.getCity();
         }).collect(Collectors.toSet());
         if (locations.size() > 1) {
             return locations.iterator().next() + "& " + (locations.size() - 1) + " more";
