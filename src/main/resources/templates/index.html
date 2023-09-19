@@ -8,6 +8,10 @@
             integrity="sha384-xcuj3WpfgjlKF+FXhSQFQ0ZNr39ln+hwjN3npfM9VBnUskLolQAcN80McRIVOPuO"
             crossorigin="anonymous"></script>
 
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css" />
+    <script src="https://cdn.jsdelivr.net/gh/mcstudios/glightbox/dist/js/glightbox.min.js"></script>
+
+
     <th:block th:replace="~{archive_ui.html :: header}"></th:block>
 
     <style type="text/css">
@@ -59,5 +63,10 @@
 <div th:replace="~{archive_ui.html :: archive_ui}"></div>
 
 <div th:replace="~{seek.html :: seek}"></div>
+
+<script type="text/javascript">
+    const lightbox = GLightbox();
+</script>
+
 </body>
 </html>
