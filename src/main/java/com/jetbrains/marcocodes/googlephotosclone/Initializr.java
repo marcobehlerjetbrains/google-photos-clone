@@ -22,6 +22,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -94,7 +95,8 @@ public class Initializr implements ApplicationRunner {
                         Location location = getLocation(metadata);
                         LocalDateTime creationTime = getCreationTime(image, metadata);
                         emf.unwrap(SessionFactory.class).inStatelessSession(ss -> {
-                            Media media = new Media(hash, filename, creationTime, location);
+                            Media media = null;
+                            media = new Media(hash, filename, creationTime, image.toUri().toString(), location);
                             ss.insert(media);
                         });
                         counter.incrementAndGet();
