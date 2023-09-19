@@ -33,7 +33,6 @@ import java.nio.file.attribute.FileTime;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.util.Collection;
 import java.util.Date;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -52,6 +51,7 @@ public class Initializr implements ApplicationRunner {
 
     private final EntityManagerFactory emf;
 
+    static HttpClient client = HttpClient.newHttpClient();
 
     public Initializr(Queries queries_, ImageMagick imageMagick, EntityManagerFactory emf) {
         this.queries_ = queries_;
@@ -127,31 +127,28 @@ public class Initializr implements ApplicationRunner {
     }
 
     static Location getLocation(Metadata metadata) {
-        Collection<GpsDirectory> directoriesOfType = metadata.getDirectoriesOfType(GpsDirectory.class);
-
-        if (!directoriesOfType.isEmpty()) {
-
-            GpsDirectory gpsDirectory = directoriesOfType.iterator().next();
-            HttpClient client = HttpClient.newHttpClient();
-            double latitude = gpsDirectory.getGeoLocation().getLatitude();
-            double longitude = gpsDirectory.getGeoLocation().getLongitude();
-            String dms = gpsDirectory.getGeoLocation().toDMSString();
-            AtomicReference<String> state = new AtomicReference<>("UNKNOWN");
-            AtomicReference<String> city = new AtomicReference<>("UNKNOWN");
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://api.3geonames.org/" + latitude + "," + longitude))
-                    .build();
-            client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                    .thenApply(HttpResponse::body)
-                    .thenAccept(xml -> {
-                        state.set(xml.substring(xml.indexOf("<state>") + 7, xml.indexOf("</state>")));
-                        city.set(xml.substring(xml.indexOf("<city>") + 6, xml.indexOf("</city>")));
-                    })
-                    .join();
-            return new Location(latitude, longitude, state.get(), city.get(), dms);
+        GpsDirectory gpsDirectory = metadata.getFirstDirectoryOfType(GpsDirectory.class);
+        if (gpsDirectory == null) {
+            return null;
         }
-        return null;
+
+        double latitude = gpsDirectory.getGeoLocation().getLatitude();
+        double longitude = gpsDirectory.getGeoLocation().getLongitude();
+        String dms = gpsDirectory.getGeoLocation().toDMSString();
+        AtomicReference<String> state = new AtomicReference<>("UNKNOWN");
+        AtomicReference<String> city = new AtomicReference<>("UNKNOWN");
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://api.3geonames.org/" + latitude + "," + longitude))
+                .build();
+        client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .thenApply(HttpResponse::body)
+                .thenAccept(xml -> {
+                    state.set(xml.substring(xml.indexOf("<state>") + 7, xml.indexOf("</state>")));
+                    city.set(xml.substring(xml.indexOf("<city>") + 6, xml.indexOf("</city>")));
+                })
+                .join();
+        return new Location(latitude, longitude, state.get(), city.get(), dms);
     }
 
     record Dimensions(int width, int height) {
