@@ -145,7 +145,8 @@ public class Initializr implements ApplicationRunner {
                     })
                     .join();
 
-            return new Location(gpsDirectory.getGeoLocation().getLatitude(), gpsDirectory.getGeoLocation().getLongitude(), result.toString());
+
+            return new Location(gpsDirectory.getGeoLocation().getLatitude(), gpsDirectory.getGeoLocation().getLongitude(), result.toString(), gpsDirectory.getGeoLocation().toDMSString());
         }
         return null;
     }

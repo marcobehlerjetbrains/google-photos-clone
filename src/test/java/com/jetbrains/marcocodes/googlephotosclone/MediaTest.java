@@ -52,7 +52,13 @@ public class MediaTest {
                 assertThat(creationTime.truncatedTo(ChronoUnit.MINUTES)).isEqualToIgnoringSeconds(testMetadata.date());
 
                 Location location = Initializr.getLocation(metadata);
-                System.out.println(location);
+
+                if (testMetadata.longitude() == null || testMetadata.latitude() == null) {
+                    assertThat(location.dms()).isBlank();
+                }
+                else {
+                    assertThat(location.dms()).isEqualTo(testMetadata.latitude() + ", " + testMetadata.longitude());
+                }
 
 
             }
