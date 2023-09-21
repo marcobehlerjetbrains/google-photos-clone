@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+
+<div th:fragment="seek">
+    <div th:each="entry, dateStatus: ${images.entrySet()}" th:remove="tag">
+        <h2 class="header" th:if="${param.date == null || (!#temporals.format(entry.key,'yyyyMMdd').equals(param.date[0].substring(0, 8)))}"><span th:text="${#temporals.format(entry.key,'EEE, dd MMM yyyy')}">[Date]</span><span
+                class="location"
+                th:text="${T(com.jetbrains.marcocodes.googlephotosclone.Media).locationsToString(entry.value)}">Location</span>
+        </h2>
+        <a th:href="${'/b/' + image.hash}" data-gallery="gallery1"  th:each="image, status: ${entry.value}" class="img glightbox3" th:attrappend="hx-trigger=${dateStatus.last && status.last}?'revealed',hx-swap=${dateStatus.last && status.last}?'afterend',hx-get=${dateStatus.last && status.last}?${'/seek?date=' + #temporals.format(image.creationDate, 'yyyyMMddHHmmss') + '&id='+ image.id}">
+            <img
+                    th:title="${'Longitude: ' + image.location?.longitude + ' | Latitude: ' + image.location?.latitude + ' | Location: ' + image.location?.city + ',' + image.location?.country}"
+                    th:src="${'/a/' + image.hash}">
+        </a>
+    </div>
+</div>
+</body>
+</html>
