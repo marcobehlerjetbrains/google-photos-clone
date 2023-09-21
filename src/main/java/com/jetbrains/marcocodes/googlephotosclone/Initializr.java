@@ -10,19 +10,18 @@ import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.exif.GpsDirectory;
 import com.drew.metadata.jpeg.JpegDirectory;
 import com.drew.metadata.png.PngDirectory;
-import com.google.common.hash.Funnels;
-import com.google.common.hash.Hasher;
-import com.google.common.hash.Hashing;
-import com.google.common.io.ByteStreams;
 import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.Tuple;
 import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.query.NativeQuery;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
+import java.math.BigInteger;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -31,15 +30,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.util.Date;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 @Component
@@ -60,6 +60,12 @@ public class Initializr implements ApplicationRunner {
         this.emf = emf;
     }
 
+    public record HashedImage(Path file, String filename, String hash) {
+    }
+
+    public record HashedImage2(Path file, String filename, String hash, LocalDateTime creationTime, Location location) {
+    }
+
     @Override
     public void run(ApplicationArguments args) throws Exception {
         Files.createDirectories(thumbnailsDir);
@@ -70,49 +76,79 @@ public class Initializr implements ApplicationRunner {
         AtomicInteger counter = new AtomicInteger();
         long start = System.currentTimeMillis();
 
-        ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-        try (Stream<Path> images = Files.walk(sourceDir)
+        /*ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());*/
+
+        try (Stream<Path> stream = Files.walk(sourceDir)
+                .parallel()
                 .filter(Files::isRegularFile)
-                .filter(Initializr::isImage);
+                .filter(Initializr::isImage)
         ) {
-            images.forEach(image -> executorService.submit(() -> {
-                String hash = hash(image);
-                String filename = image.getFileName().toString();
+            List<Path> images = stream.collect(Collectors.toCollection(ArrayList::new));
+            int chunkSize = 50;
+            IntStream.range(0, images.size() / chunkSize + 1).mapToObj(chunkNum -> images.subList(chunkNum * chunkSize, Math.min(images.size(), chunkNum * chunkSize + chunkSize)))
+                    .parallel()
+                    .forEach(batch -> {
+                        System.out.println("start  " + Thread.currentThread().getName() + batch.size());
 
-                if (!queries_.existsByFilenameAndHash(filename, hash)) {
-                    Path thumbnail = getThumbnailPath(hash);
+                        List<HashedImage> hashedImages = batch.stream().map(im -> new HashedImage(im, im.getFileName().toString(), hash(im))).toList();
 
-                    if (!Files.exists(thumbnail)) {
-                        final boolean success = imageMagick.createThumbnail(image, thumbnail);
-                        if (!success) {
-                            System.err.println("Error creating thumbnail");
-                            return;
+                        StringBuilder builder = new StringBuilder();
+                        Iterator<HashedImage> iterator = hashedImages.iterator();
+                        while (iterator.hasNext()) {
+                            HashedImage next = iterator.next();
+                            builder.append("('").append(next.filename).append("','").append(next.hash).append("')");
+                            if (iterator.hasNext()) builder.append(",");
                         }
-                    }
 
-                    try (InputStream is = Files.newInputStream(image)) {
-                        Metadata metadata = ImageMetadataReader.readMetadata(is);
-                        Location location = getLocation(metadata);
-                        LocalDateTime creationTime = getCreationTime(image, metadata);
-                        emf.unwrap(SessionFactory.class).inStatelessSession(ss -> {
-                            Media media = null;
-                            media = new Media(hash, filename, creationTime, image.toUri().toString(), location);
-                            ss.insert(media);
+                        String ququ = "WITH media_batch AS (\n" +
+                                "    SELECT filename, hash\n" +
+                                "    FROM (\n" +
+                                "        VALUES " + builder + ")" +
+                                "        v(filename,hash)\n" +
+                                ")" +
+                                "select filename, hash from media_batch" +
+                                " where not exists(" +
+                                "    select * from MEDIA m where m.filename = media_batch.filename and m.hash = media_batch.hash" +
+                                ")" +
+                                "\n";
+
+                        Map<String, String> collect = emf.unwrap(SessionFactory.class).fromStatelessSession(ss -> {
+                            NativeQuery<Tuple> nativeQuery = ss.createNativeQuery(ququ, Tuple.class);
+                            return nativeQuery.getResultList().stream().collect(Collectors.toMap(non -> non.get(Media_.FILENAME, String.class), non -> non.get(Media_.HASH, String.class)));
                         });
-                        counter.incrementAndGet();
-                    } catch (ImageProcessingException e) {
-                        e.printStackTrace();
-                        // not an image or something else
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
+
+                        List<HashedImage2> hashedImages1 = hashedImages.stream().filter(hashedImage -> collect.containsKey(hashedImage.filename) && collect.get(hashedImage.filename).equals(hashedImage.hash))
+                                .map(image -> {
+                                    Path thumbnail = getThumbnailPath(image.hash);
+                                    if (!Files.exists(thumbnail)) {
+                                        imageMagick.createThumbnail(image.file, thumbnail);
+                                    }
+                                    try (InputStream is = Files.newInputStream(image.file)) {
+                                        Metadata metadata = ImageMetadataReader.readMetadata(is);
+                                        Location location = getLocation(metadata);
+                                        LocalDateTime creationTime = getCreationTime(image.file, metadata);
+                                        return new HashedImage2(image.file, image.filename, image.hash, creationTime, location);
+                                    } catch (IOException | ImageProcessingException e) {
+                                        e.printStackTrace();
+                                    }
+                                    return null;
+                                }).toList();
+
+                        emf.unwrap(SessionFactory.class).inSession(ss -> {
+                            Transaction tx = ss.beginTransaction();
+                            hashedImages1.forEach(image -> {
+                                ss.persist(new Media(image.hash, image.filename, image.creationTime, image.file.toUri().toString(), image.location));
+                                counter.incrementAndGet();
+                            });
+                            ss.flush();
+                            ss.clear();
+                            tx.commit();
+
+                        });
+                    });
 
 
-            }));
         }
-        executorService.shutdown();
-        executorService.awaitTermination(3, TimeUnit.HOURS);
 
         long end = System.currentTimeMillis();
         System.out.println("Converted " + counter + " images to thumbnails. Took " + ((end - start) * 0.001) + "seconds");
@@ -130,7 +166,7 @@ public class Initializr implements ApplicationRunner {
 
     static Location getLocation(Metadata metadata) {
         GpsDirectory gpsDirectory = metadata.getFirstDirectoryOfType(GpsDirectory.class);
-        if (gpsDirectory == null) {
+        if (gpsDirectory == null || gpsDirectory.getGeoLocation() == null) {
             return null;
         }
 
@@ -188,14 +224,14 @@ public class Initializr implements ApplicationRunner {
     static LocalDateTime getCreationTime(Path image, Metadata metadata) {
 
         ExifSubIFDDirectory exifSubIFDDirectory = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
-        if (exifSubIFDDirectory != null) {
+        if (exifSubIFDDirectory != null && exifSubIFDDirectory.containsTag(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL)) {
             Date creatioDate = exifSubIFDDirectory.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL);
             return creatioDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime();
         }
 
 
         ExifIFD0Directory exifIFD0Directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
-        if (exifIFD0Directory != null) {
+        if (exifIFD0Directory != null && exifIFD0Directory.containsTag(ExifIFD0Directory.TAG_DATETIME)) {
             Date creatioDate = exifIFD0Directory.getDate(ExifIFD0Directory.TAG_DATETIME);
             return creatioDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime();
         }
@@ -234,12 +270,33 @@ public class Initializr implements ApplicationRunner {
 
 
     public static String hash(Path file) {
-        try (InputStream fis = Files.newInputStream(file)) {
-            Hasher hasher = Hashing.sha256().newHasher();
-            ByteStreams.copy(fis, Funnels.asOutputStream(hasher));
-            return hasher.hash().toString();
-        } catch (IOException e) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            try (InputStream ios = Files.newInputStream(file)) {
+                int BUFFER_SIZE = 8192;
+                while (true) {
+                    byte[] buffer1 = new byte[BUFFER_SIZE];
+                    int read = ios.readNBytes(buffer1, 0, BUFFER_SIZE);
+                    if (read > 0) {
+                        digest.update(buffer1);
+                    }
+                    if (read < BUFFER_SIZE) {
+                        break;
+                    }
+                }
+                return toHex(digest.digest());
+            } catch (IOException e) {
+                e.printStackTrace();
+                return "NA";
+            }
+
+        } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static String toHex(byte[] bytes) {
+        BigInteger bi = new BigInteger(1, bytes);
+        return String.format("%0" + (bytes.length << 1) + "x", bi);
     }
 }
