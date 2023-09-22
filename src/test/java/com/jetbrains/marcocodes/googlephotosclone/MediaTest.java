@@ -13,15 +13,15 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class MediaTest {
+
+    ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     @TestFactory
     Collection<DynamicTest> mediaTests() {
@@ -33,33 +33,33 @@ public class MediaTest {
             return images.stream().map(image -> DynamicTest.dynamicTest(image, () -> {
                 String filename = image.substring(0, image.indexOf("."));
 
-                try (InputStream json = MediaTest.class.getResourceAsStream("/" + filename + ".json");
-                     InputStream imageStream = MediaTest.class.getResourceAsStream("/" + image)) {
+                try (InputStream json = MediaTest.class.getResourceAsStream("/" + filename + ".json");) {
 
-                    TestMetadata testMetadata = new ObjectMapper().registerModule(new JavaTimeModule()).readValue(json, TestMetadata.class);
-                    Metadata metadata = ImageMetadataReader.readMetadata(imageStream);
+                    Path file = Path.of(MediaTest.class.getResource("/" + image).toURI());
+                    TestMetadata expectedMetadata = objectMapper.readValue(json, TestMetadata.class);
+                    Metadata actualMetadata = ImageMetadataReader.readMetadata(file.toFile());
 
-                    Initializr.Dimensions dimensions = Initializr.getImageSize(metadata);
-                    assertThat(dimensions.height()).isEqualTo(testMetadata.height());
-                    assertThat(dimensions.width()).isEqualTo(testMetadata.width());
+                    // 1. dimensions
+                    Initializr.Dimensions actualDimensions = Initializr.getImageSize(actualMetadata);
+                    assertThat(actualDimensions.height()).as("image height").isEqualTo(expectedMetadata.height());
+                    assertThat(actualDimensions.width()).as("image width").isEqualTo(expectedMetadata.width());
 
-                    LocalDateTime creationTime = Initializr.getCreationTime(Path.of(MediaTest.class.getResource("/" + image).getFile().substring(1)), metadata);
-                    assertThat(creationTime.truncatedTo(ChronoUnit.MINUTES)).isEqualToIgnoringSeconds(testMetadata.date());
+                    // 2. creation time
 
-                    Location location = Initializr.getLocation(metadata);
+                    LocalDateTime creationTime = Initializr.getCreationTime(file, actualMetadata);
+                    assertThat(creationTime).as("creation time").isEqualToIgnoringSeconds(expectedMetadata.date());
 
-                    if (testMetadata.longitude() == null || testMetadata.latitude() == null) {
-                        assertThat(location).isNull();
+                    // 3. location
+                    Location actualLocation = Initializr.getLocation(actualMetadata);
+                    if (expectedMetadata.longitude() == null || expectedMetadata.latitude() == null) {
+                        assertThat(actualLocation).isNull();
+                    } else {
+                        assertThat(actualLocation).isNotNull();
+                        assertThat(actualLocation.getDms()).isEqualTo(expectedMetadata.latitude() + ", " + expectedMetadata.longitude());
                     }
-                    else {
-                        assertThat(location.getDms()).isEqualTo(testMetadata.latitude() + ", " + testMetadata.longitude());
-                    }
-
-
                 }
             })).toList();
         }
-
 
 
     }
