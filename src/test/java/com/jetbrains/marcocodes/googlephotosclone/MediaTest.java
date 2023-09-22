@@ -57,7 +57,7 @@ public class MediaTest {
 
 
                 }
-            })).collect(Collectors.toList());
+            })).toList();
         }
 
 
