@@ -71,7 +71,6 @@ public class MediaController {
         Media media1 = queries_.mediaByHash(hash);
         if (media1 == null) throw new ResponseStatusException(HttpStatusCode.valueOf(404));
         try {
-
             HttpHeaders header = new HttpHeaders();
             header.setContentType(MediaType.IMAGE_JPEG);
             Path path = Path.of(new URI(media1.getOriginalFile()));
@@ -81,7 +80,6 @@ public class MediaController {
             e.printStackTrace();
             throw new ResponseStatusException(HttpStatusCode.valueOf(404));
         }
-
     }
 
 
