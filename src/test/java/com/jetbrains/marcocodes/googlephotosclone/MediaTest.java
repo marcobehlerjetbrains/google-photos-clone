@@ -34,9 +34,9 @@ public class MediaTest {
                 String filename = image.substring(0, image.indexOf("."));
 
                 try (InputStream json = MediaTest.class.getResourceAsStream("/" + filename + ".json");) {
+                    TestMetadata expectedMetadata = objectMapper.readValue(json, TestMetadata.class);
 
                     Path file = Path.of(MediaTest.class.getResource("/" + image).toURI());
-                    TestMetadata expectedMetadata = objectMapper.readValue(json, TestMetadata.class);
                     Metadata actualMetadata = ImageMetadataReader.readMetadata(file.toFile());
 
                     // 1. dimensions
@@ -45,7 +45,6 @@ public class MediaTest {
                     assertThat(actualDimensions.width()).as("image width").isEqualTo(expectedMetadata.width());
 
                     // 2. creation time
-
                     LocalDateTime creationTime = Initializr.getCreationTime(file, actualMetadata);
                     assertThat(creationTime).as("creation time").isEqualToIgnoringSeconds(expectedMetadata.date());
 
