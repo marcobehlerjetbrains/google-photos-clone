@@ -155,7 +155,7 @@ public class Initializr implements ApplicationRunner {
     }
 
 
-    static Dimensions getImageSize(Metadata metadata) {
+    static Dimensions getDimensions(Metadata metadata) {
         try {
             ExifIFD0Directory exifIfD0Directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
             if (exifIfD0Directory != null && exifIfD0Directory.containsTag(ExifIFD0Directory.TAG_IMAGE_WIDTH) && exifIfD0Directory.containsTag(ExifIFD0Directory.TAG_IMAGE_HEIGHT)) {

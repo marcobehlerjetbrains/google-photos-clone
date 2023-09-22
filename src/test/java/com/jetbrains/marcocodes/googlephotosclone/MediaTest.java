@@ -12,7 +12,6 @@ import org.junit.jupiter.api.TestFactory;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -40,7 +39,7 @@ public class MediaTest {
                     Metadata actualMetadata = ImageMetadataReader.readMetadata(file.toFile());
 
                     // 1. dimensions
-                    Initializr.Dimensions actualDimensions = Initializr.getImageSize(actualMetadata);
+                    Initializr.Dimensions actualDimensions = Initializr.getDimensions(actualMetadata);
                     assertThat(actualDimensions.height()).as("image height").isEqualTo(expectedMetadata.height());
                     assertThat(actualDimensions.width()).as("image width").isEqualTo(expectedMetadata.width());
 
