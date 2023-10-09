@@ -192,21 +192,21 @@ public class Initializr implements ApplicationRunner {
     static LocalDateTime getCreationTime(Path image, Metadata metadata) {
 
         ExifSubIFDDirectory exifSubIFDDirectory = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
-        if (exifSubIFDDirectory != null) {
+        if (exifSubIFDDirectory != null && exifSubIFDDirectory.containsTag(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL)) {
             Date creatioDate = exifSubIFDDirectory.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL);
             return creatioDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime();
         }
 
 
         ExifIFD0Directory exifIFD0Directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
-        if (exifIFD0Directory != null) {
+        if (exifIFD0Directory != null && exifIFD0Directory.containsTag(ExifIFD0Directory.TAG_DATETIME)) {
             Date creatioDate = exifIFD0Directory.getDate(ExifIFD0Directory.TAG_DATETIME);
             return creatioDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime();
         }
 
 
         GpsDirectory firstDirectoryOfType = metadata.getFirstDirectoryOfType(GpsDirectory.class);
-        if (firstDirectoryOfType != null) {
+        if (firstDirectoryOfType != null && firstDirectoryOfType.getGpsDate() != null) {
             Date gpsDate = firstDirectoryOfType.getGpsDate();
             return gpsDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime();
         }
