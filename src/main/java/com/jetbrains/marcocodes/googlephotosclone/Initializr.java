@@ -212,7 +212,7 @@ public class Initializr implements ApplicationRunner {
 
 
         GpsDirectory firstDirectoryOfType = metadata.getFirstDirectoryOfType(GpsDirectory.class);
-        if (firstDirectoryOfType != null) {
+        if (firstDirectoryOfType != null && firstDirectoryOfType.getGpsDate() != null) {
             Date gpsDate = firstDirectoryOfType.getGpsDate();
             return gpsDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime();
         }
