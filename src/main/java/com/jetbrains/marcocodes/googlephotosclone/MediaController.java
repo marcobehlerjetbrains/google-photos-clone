@@ -1,27 +1,21 @@
 package com.jetbrains.marcocodes.googlephotosclone;
 
-import jakarta.persistence.EntityManager;
 import org.springframework.core.io.PathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.*;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.file.Path;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.stream.Collectors;
 
 @Controller
 public class MediaController {
@@ -30,21 +24,17 @@ public class MediaController {
     static Path thumbnailsDir = Path.of(userHome).resolve(".photos");
 
     private final Queries queries_;
-
-    private final EntityManager entityManager;
-
     private final Archiver archiver;
 
-    public MediaController(Queries queries_, EntityManager entityManager, Archiver archiver) {
+    public MediaController(Queries queries_, Archiver archiver) {
         this.queries_ = queries_;
-        this.entityManager = entityManager;
         this.archiver = archiver;
     }
 
     @GetMapping("/")
     public String index(Model model) {
         List<Media> media = queries_.mediaSeek();
-        model.addAttribute("archiver", new Archiver());
+        model.addAttribute("archiver", archiver);
         model.addAttribute("images", Media.toMap(media));
         return "index";
     }
@@ -83,10 +73,22 @@ public class MediaController {
     }
 
 
-
     @PostMapping("/media/archive")
     public String archive(Model model) {
-        archiver.run();
+        List<Path> sourceFiles = queries_.mediaSeek()
+                .stream()
+                .map(Media::getOriginalFile)
+                .map(s -> {
+                    try {
+                        return Path.of(new URI(s));
+                    } catch (URISyntaxException e) {
+                        throw new RuntimeException(e);
+                    }
+                }).collect(Collectors.toCollection(ArrayList::new));
+
+        sourceFiles.add(Path.of("c:\\dev\\stripe.exe"));
+
+        archiver.run(sourceFiles);
         model.addAttribute("archiver", archiver);
         return "archive_ui";
     }
@@ -105,13 +107,17 @@ public class MediaController {
     }
 
 
-    @GetMapping("/media/archive/file")
-    public ResponseEntity<Resource> dd(String param) {
-        Resource file = new PathResource(Path.of("c:\\tmp\\aaa\\Uganda.zip"));
+    @GetMapping("/media/archive/download")
+    @ResponseBody
+    public ResponseEntity<Resource> downloadArchive() {
+        if (archiver.getArchive() == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+
+        Resource file = new PathResource(archiver.getArchive());
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getFilename() + "\"")
                 .body(file);
     }
-
 }
 

@@ -49,7 +49,7 @@
             </div>
         </div>
         <div th:if="${archiver.status() == 'Complete'}" th:remove="tag">
-            <a hx-boost="false" href="/media/archive/file">Archive Ready!  Click here to download. &downarrow;</a>
+            <a hx-boost="false" href="/media/archive/download">Archive Ready!  Click here to download. &downarrow;</a>
             <button hx-delete="/media/archive">Clear Download</button>
         </div>
     </div>
