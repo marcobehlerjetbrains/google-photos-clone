@@ -3,6 +3,7 @@ package com.jetbrains.marcocodes.googlephotosclone;
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.imaging.ImageProcessingException;
 import com.drew.imaging.png.PngChunkType;
+import com.drew.lang.GeoLocation;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.MetadataException;
 import com.drew.metadata.exif.ExifIFD0Directory;
@@ -132,9 +133,14 @@ public class Initializr implements ApplicationRunner {
             return null;
         }
 
-        double latitude = gpsDirectory.getGeoLocation().getLatitude();
-        double longitude = gpsDirectory.getGeoLocation().getLongitude();
-        String dms = gpsDirectory.getGeoLocation().toDMSString();
+        GeoLocation geoLocation = gpsDirectory.getGeoLocation();
+        if (geoLocation == null) {
+            return null;
+        }
+
+        double latitude = geoLocation.getLatitude();
+        double longitude = geoLocation.getLongitude();
+        String dms = geoLocation.toDMSString();
         AtomicReference<String> state = new AtomicReference<>("UNKNOWN");
         AtomicReference<String> city = new AtomicReference<>("UNKNOWN");
 
