@@ -3,6 +3,7 @@ package com.jetbrains.marcocodes.googlephotosclone;
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.imaging.ImageProcessingException;
 import com.drew.imaging.png.PngChunkType;
+import com.drew.lang.GeoLocation;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.MetadataException;
 import com.drew.metadata.exif.ExifIFD0Directory;
@@ -10,10 +11,6 @@ import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.exif.GpsDirectory;
 import com.drew.metadata.jpeg.JpegDirectory;
 import com.drew.metadata.png.PngDirectory;
-import com.google.common.hash.Funnels;
-import com.google.common.hash.Hasher;
-import com.google.common.hash.Hashing;
-import com.google.common.io.ByteStreams;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.SessionFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -22,7 +19,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
+import java.math.BigInteger;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -31,6 +28,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
+import java.rmi.ServerError;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -77,6 +77,11 @@ public class Initializr implements ApplicationRunner {
         ) {
             images.forEach(image -> executorService.submit(() -> {
                 String hash = hash(image);
+                if (hash == null) {
+                    System.err.println("Could not compute hash for image : " + image.toAbsolutePath().toString());
+                    return;
+                }
+
                 String filename = image.getFileName().toString();
 
                 if (!queries_.existsByFilenameAndHash(filename, hash)) {
@@ -130,13 +135,18 @@ public class Initializr implements ApplicationRunner {
 
     static Location getLocation(Metadata metadata) {
         GpsDirectory gpsDirectory = metadata.getFirstDirectoryOfType(GpsDirectory.class);
-        if (gpsDirectory == null) {
+        if (gpsDirectory == null || gpsDirectory.getGeoLocation() == null) {
             return null;
         }
 
-        double latitude = gpsDirectory.getGeoLocation().getLatitude();
-        double longitude = gpsDirectory.getGeoLocation().getLongitude();
-        String dms = gpsDirectory.getGeoLocation().toDMSString();
+        GeoLocation geoLocation = gpsDirectory.getGeoLocation();
+        if (geoLocation == null) {
+            return null;
+        }
+
+        double latitude = geoLocation.getLatitude();
+        double longitude = geoLocation.getLongitude();
+        String dms = geoLocation.toDMSString();
         AtomicReference<String> state = new AtomicReference<>("UNKNOWN");
         AtomicReference<String> city = new AtomicReference<>("UNKNOWN");
 
@@ -157,7 +167,7 @@ public class Initializr implements ApplicationRunner {
     }
 
 
-    static Dimensions getImageSize(Metadata metadata) {
+    static Dimensions getDimensions(Metadata metadata) {
         try {
             ExifIFD0Directory exifIfD0Directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
             if (exifIfD0Directory != null && exifIfD0Directory.containsTag(ExifIFD0Directory.TAG_IMAGE_WIDTH) && exifIfD0Directory.containsTag(ExifIFD0Directory.TAG_IMAGE_HEIGHT)) {
@@ -188,14 +198,14 @@ public class Initializr implements ApplicationRunner {
     static LocalDateTime getCreationTime(Path image, Metadata metadata) {
 
         ExifSubIFDDirectory exifSubIFDDirectory = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
-        if (exifSubIFDDirectory != null) {
+        if (exifSubIFDDirectory != null && exifSubIFDDirectory.containsTag(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL)) {
             Date creatioDate = exifSubIFDDirectory.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL);
             return creatioDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime();
         }
 
 
         ExifIFD0Directory exifIFD0Directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
-        if (exifIFD0Directory != null) {
+        if (exifIFD0Directory != null && exifIFD0Directory.containsTag(ExifIFD0Directory.TAG_DATETIME)) {
             Date creatioDate = exifIFD0Directory.getDate(ExifIFD0Directory.TAG_DATETIME);
             return creatioDate.toInstant().atOffset(ZoneOffset.UTC).toLocalDateTime();
         }
@@ -234,11 +244,27 @@ public class Initializr implements ApplicationRunner {
 
 
     public static String hash(Path file) {
-        try (InputStream fis = Files.newInputStream(file)) {
-            Hasher hasher = Hashing.sha256().newHasher();
-            ByteStreams.copy(fis, Funnels.asOutputStream(hasher));
-            return hasher.hash().toString();
-        } catch (IOException e) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            try (InputStream ios = Files.newInputStream(file)) {
+                int BUFFER_SIZE = 8192;
+                while (true) {
+                    byte[] buffer1 = new byte[BUFFER_SIZE];
+                    int read = ios.readNBytes(buffer1, 0, BUFFER_SIZE);
+                    if (read > 0) {
+                        digest.update(buffer1);
+                    }
+                    if (read < BUFFER_SIZE) {
+                        break;
+                    }
+                }
+                byte[] digestedBytes = digest.digest();
+                BigInteger bi = new BigInteger(1, digestedBytes);
+                return String.format("%0" + (digestedBytes.length << 1) + "x", bi);
+            } catch (IOException e) {
+                return null;
+            }
+        } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
     }
