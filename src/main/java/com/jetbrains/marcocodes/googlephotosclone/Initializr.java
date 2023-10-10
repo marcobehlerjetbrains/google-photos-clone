@@ -11,10 +11,15 @@ import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.exif.GpsDirectory;
 import com.drew.metadata.jpeg.JpegDirectory;
 import com.drew.metadata.png.PngDirectory;
+import jakarta.jms.JMSException;
+import jakarta.jms.Message;
+import jakarta.jms.Session;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.SessionFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.jms.core.JmsTemplate;
+import org.springframework.jms.core.MessageCreator;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -45,6 +50,8 @@ import java.util.stream.Stream;
 @Component
 public class Initializr implements ApplicationRunner {
 
+
+
     static String userHome = System.getProperty("user.home");
     static Path thumbnailsDir = Path.of(userHome).resolve(".photos");
     private final Queries queries_;
@@ -53,15 +60,22 @@ public class Initializr implements ApplicationRunner {
     private final EntityManagerFactory emf;
 
     static HttpClient client = HttpClient.newHttpClient();
+    private final JmsTemplate jmsTemplate;
 
-    public Initializr(Queries queries_, ImageMagick imageMagick, EntityManagerFactory emf) {
+    public Initializr(Queries queries_, ImageMagick imageMagick, EntityManagerFactory emf, JmsTemplate jmsTemplate) {
         this.queries_ = queries_;
         this.imageMagick = imageMagick;
         this.emf = emf;
+        this.jmsTemplate = jmsTemplate;
     }
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
+       /* jmsTemplate.send("media", session -> session.createTextMessage("Hello"));
+        jmsTemplate.send("media", session -> session.createTextMessage("Hello"));
+        jmsTemplate.send("media", session -> session.createTextMessage("Hello"));
+        jmsTemplate.send("media", session -> session.createTextMessage("Hello"));*/
+
         Files.createDirectories(thumbnailsDir);
 
         String directory = args.getSourceArgs().length == 1 ? args.getSourceArgs()[0] : ".";

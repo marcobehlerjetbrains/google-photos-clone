@@ -24,6 +24,12 @@ repositories {
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-web'
+
+
+    implementation 'org.springframework.boot:spring-boot-starter-artemis'
+
+    implementation 'org.apache.activemq:artemis-jakarta-server'
+
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     // https://mvnrepository.com/artifact/com.h2database/h2
@@ -39,11 +45,12 @@ dependencies {
 
     // https://mvnrepository.com/artifact/com.drewnoakes/metadata-extractor
     implementation group: 'com.drewnoakes', name: 'metadata-extractor', version: '2.18.0'
+// https://mvnrepository.com/artifact/org.apache.activemq/artemis-server
+
+
 
     // https://mvnrepository.com/artifact/com.google.guava/guava
     implementation group: 'com.google.guava', name: 'guava', version: '32.1.2-jre'
-
-
 }
 
 tasks.named('test') {

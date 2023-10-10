@@ -1,6 +1,7 @@
 package com.jetbrains.marcocodes.googlephotosclone;
 
 import jakarta.persistence.EntityManager;
+import org.apache.activemq.artemis.core.server.embedded.EmbeddedActiveMQ;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
