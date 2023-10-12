@@ -34,6 +34,7 @@ public class Archiver {
         new Thread(() -> {
             try {
                 archive = Files.createTempFile("archive", ".zip");
+                archive.toFile().deleteOnExit(); // TODO fix
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
