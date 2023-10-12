@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css" />
     <script src="https://cdn.jsdelivr.net/gh/mcstudios/glightbox/dist/js/glightbox.min.js"></script>
 
+    <!-- Option 1: Include in HTML -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
     <th:block th:replace="~{archive_ui.html :: header}"></th:block>
 
@@ -54,11 +56,33 @@
             padding: 16px 0 16px 6px;
             outline: none;
         }
+
+
+        .img .hidden-child {
+            visibility: hidden;
+            position: absolute;
+            top: 0.5em;
+            left: 0.5em;
+            color:black;
+            font-size: 1.5rem;
+            background-color: #EEE;
+            border-radius: 16px;
+        }
+
+        .img:hover .hidden-child {
+            visibility: visible;
+        }
+
+        .img:hover .hidden-child:hover {
+           background-color: red;
+        }
     </style>
 
 
 </head>
 <body>
+
+
 
 <div th:replace="~{archive_ui.html :: archive_ui}"></div>
 
