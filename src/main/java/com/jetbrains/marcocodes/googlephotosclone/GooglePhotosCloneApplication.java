@@ -5,6 +5,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -13,7 +14,7 @@ public class GooglePhotosCloneApplication {
 
 
     @Bean
-    @Scope("singleton")
+    @Scope(value = "session", proxyMode= ScopedProxyMode.TARGET_CLASS)
     public Archiver archiver() {
         return new Archiver();
     }
