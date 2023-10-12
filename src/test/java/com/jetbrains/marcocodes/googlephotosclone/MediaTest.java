@@ -39,16 +39,16 @@ public class MediaTest {
                     Metadata actualMetadata = ImageMetadataReader.readMetadata(file.toFile());
 
                     // 1. dimensions
-                    Initializr.Dimensions actualDimensions = Initializr.getDimensions(actualMetadata);
+                    NewMediaListener.Dimensions actualDimensions = NewMediaListener.getDimensions(actualMetadata);
                     assertThat(actualDimensions.height()).as("image height").isEqualTo(expectedMetadata.height());
                     assertThat(actualDimensions.width()).as("image width").isEqualTo(expectedMetadata.width());
 
                     // 2. creation time
-                    LocalDateTime creationTime = Initializr.getCreationTime(file, actualMetadata);
+                    LocalDateTime creationTime = NewMediaListener.getCreationTime(file, actualMetadata);
                     assertThat(creationTime).as("creation time").isEqualToIgnoringSeconds(expectedMetadata.date());
 
                     // 3. location
-                    Location actualLocation = Initializr.getLocation(actualMetadata);
+                    Location actualLocation = NewMediaListener.getLocation(actualMetadata);
                     if (expectedMetadata.longitude() == null || expectedMetadata.latitude() == null) {
                         assertThat(actualLocation).isNull();
                     } else {
