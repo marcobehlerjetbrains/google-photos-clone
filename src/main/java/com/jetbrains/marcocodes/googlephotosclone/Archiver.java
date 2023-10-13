@@ -1,5 +1,8 @@
 package com.jetbrains.marcocodes.googlephotosclone;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -11,6 +14,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 public class Archiver {
+
+    private static Logger logger = LoggerFactory.getLogger(Archiver.class);
 
     private double progress = 0.0;
     private String status = "Waiting";
@@ -33,10 +38,10 @@ public class Archiver {
 
         new Thread(() -> {
             try {
-                archive = Files.createTempFile("archive", ".zip");
+                archive = Files.createTempFile("archive_", ".zip");
                 archive.toFile().deleteOnExit(); // TODO fix
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                logger.error("Could not create temp file");
             }
 
             try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(archive))) {

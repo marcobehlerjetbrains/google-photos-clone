@@ -35,7 +35,7 @@ public class MediaController {
     public String index(Model model) {
         List<Media> media = queries_.mediaSeek();
         model.addAttribute("archiver", archiver);
-        model.addAttribute("images", Media.toMap(media));
+        model.addAttribute("datesToMedia", Media.toMap(media));
         return "index";
     }
 
@@ -43,7 +43,7 @@ public class MediaController {
     @GetMapping("/seek")
     public String index(Model model, @RequestParam @DateTimeFormat(pattern = "yyyyMMddHHmmss") LocalDateTime date, @RequestParam Long id) {
         List<Media> media = queries_.mediaSeek(date, id);
-        model.addAttribute("images", Media.toMap(media));
+        model.addAttribute("datesToMedia", Media.toMap(media));
         return "seek";
     }
 
@@ -85,8 +85,6 @@ public class MediaController {
                         throw new RuntimeException(e);
                     }
                 }).collect(Collectors.toCollection(ArrayList::new));
-
-        sourceFiles.add(Path.of("c:\\dev\\stripe.exe"));
 
         archiver.run(sourceFiles);
         model.addAttribute("archiver", archiver);
