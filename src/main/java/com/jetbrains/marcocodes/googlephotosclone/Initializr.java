@@ -1,7 +1,5 @@
 package com.jetbrains.marcocodes.googlephotosclone;
 
-import com.drew.imaging.ImageMetadataReader;
-import com.drew.imaging.ImageProcessingException;
 import com.drew.imaging.png.PngChunkType;
 import com.drew.lang.GeoLocation;
 import com.drew.metadata.Metadata;
@@ -12,7 +10,8 @@ import com.drew.metadata.exif.GpsDirectory;
 import com.drew.metadata.jpeg.JpegDirectory;
 import com.drew.metadata.png.PngDirectory;
 import jakarta.persistence.EntityManagerFactory;
-import org.hibernate.SessionFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
@@ -28,13 +27,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
-import java.rmi.ServerError;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -45,6 +44,7 @@ import java.util.stream.Stream;
 @Component
 public class Initializr implements ApplicationRunner {
 
+    private Logger logger = LoggerFactory.getLogger(Initializr.class);
     static String userHome = System.getProperty("user.home");
     static Path thumbnailsDir = Path.of(userHome).resolve(".photos");
     private final Queries queries_;
@@ -60,6 +60,12 @@ public class Initializr implements ApplicationRunner {
         this.emf = emf;
     }
 
+
+    public record HashedImage(Path image, String hash) {
+
+    }
+
+
     @Override
     public void run(ApplicationArguments args) throws Exception {
         Files.createDirectories(thumbnailsDir);
@@ -72,10 +78,17 @@ public class Initializr implements ApplicationRunner {
 
         ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
         try (Stream<Path> images = Files.walk(sourceDir)
+                .parallel()
                 .filter(Files::isRegularFile)
                 .filter(Initializr::isImage);
         ) {
-            images.forEach(image -> executorService.submit(() -> {
+
+            List<HashedImage> hashedImages = images.map(image -> new HashedImage(image, hash(image))).toList();
+            long hashedEnd = System.currentTimeMillis();
+            logger.info("Hashed all media in " + ((hashedEnd - start) * 0.001) + " seconds");
+
+
+          /*  images.forEach(image -> executorService.submit(() -> {
                 String hash = hash(image);
                 if (hash == null) {
                     System.err.println("Could not compute hash for image : " + image.toAbsolutePath().toString());
@@ -112,9 +125,7 @@ public class Initializr implements ApplicationRunner {
                         throw new RuntimeException(e);
                     }
                 }
-
-
-            }));
+            }));*/
         }
         executorService.shutdown();
         executorService.awaitTermination(3, TimeUnit.HOURS);
