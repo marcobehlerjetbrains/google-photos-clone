@@ -82,14 +82,8 @@
 
 <div th:replace="~{archive_ui.html :: archive_ui}"></div>
 
-<div th:each="dateToMedia : ${datesToMedia}" th:remove="tag">
-    <h2 class="header"><span th:text="${#temporals.format(dateToMedia.key,'EEE, dd MMM yyyy')}">[Date]</span>
-        <span class="location" th:text="${T(com.jetbrains.marcocodes.googlephotosclone.Media).locationsToString(dateToMedia.value)}">[Location]</span>
-    </h2>
+<div th:replace="~{seek.html :: seek}"></div>
 
-    <a th:href="${'/b/' + media.hash}" th:each="media: ${dateToMedia.value}" class="img" th:with="isLast=${dateToMediaStat.last && mediaStat.last}">
-        <img th:src="${'/a/' + media.hash}">
-    </a>
-</div>
+
 </body>
 </html>
