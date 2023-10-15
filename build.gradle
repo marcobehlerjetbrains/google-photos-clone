@@ -32,6 +32,8 @@ dependencies {
 // https://mvnrepository.com/artifact/io.github.classgraph/classgraph
     testImplementation group: 'io.github.classgraph', name: 'classgraph', version: '4.8.162'
 
+    implementation 'me.tongfei:progressbar:0.10.0'
+
 // https://mvnrepository.com/artifact/org.assertj/assertj-core
     testImplementation group: 'org.assertj', name: 'assertj-core', version: '3.24.2'
 

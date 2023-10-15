@@ -1,5 +1,7 @@
 package com.jetbrains.marcocodes.googlephotosclone;
 
+import com.drew.imaging.ImageMetadataReader;
+import com.drew.imaging.ImageProcessingException;
 import com.drew.imaging.png.PngChunkType;
 import com.drew.lang.GeoLocation;
 import com.drew.metadata.Metadata;
@@ -10,6 +12,10 @@ import com.drew.metadata.exif.GpsDirectory;
 import com.drew.metadata.jpeg.JpegDirectory;
 import com.drew.metadata.png.PngDirectory;
 import jakarta.persistence.EntityManagerFactory;
+import me.tongfei.progressbar.ProgressBar;
+import me.tongfei.progressbar.ProgressBarBuilder;
+import me.tongfei.progressbar.ProgressBarStyle;
+import org.hibernate.SessionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -33,7 +39,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Date;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -76,60 +81,77 @@ public class Initializr implements ApplicationRunner {
         AtomicInteger counter = new AtomicInteger();
         long start = System.currentTimeMillis();
 
-        ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-        try (Stream<Path> images = Files.walk(sourceDir)
+
+        long totalImages = Files.walk(sourceDir)
                 .parallel()
                 .filter(Files::isRegularFile)
-                .filter(Initializr::isImage);
-        ) {
+                .filter(Initializr::isImage).count();
+        ProgressBar pb = new ProgressBarBuilder()
+                .setInitialMax(totalImages)
+                .hideEta()
+                .setTaskName("Full Scan")
+                .setStyle(ProgressBarStyle.ASCII)
+                .build();
 
-            List<HashedImage> hashedImages = images.map(image -> new HashedImage(image, hash(image))).toList();
-            long hashedEnd = System.currentTimeMillis();
-            logger.info("Hashed all media in " + ((hashedEnd - start) * 0.001) + " seconds");
+        try (pb) { // name, initial max
 
+            ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+            try (Stream<Path> images = Files.walk(sourceDir)
+                    .parallel()
+                    .filter(Files::isRegularFile)
+                    .filter(Initializr::isImage);
+            ) {
+                // try-with-resource block
 
-          /*  images.forEach(image -> executorService.submit(() -> {
-                String hash = hash(image);
-                if (hash == null) {
-                    System.err.println("Could not compute hash for image : " + image.toAbsolutePath().toString());
-                    return;
-                }
+                images.forEach(image -> executorService.submit(() -> {
+                    String hash = hash(image);
+                    if (hash == null) {
+                        System.err.println("Could not compute hash for image : " + image.toAbsolutePath().toString());
+                        return;
+                    }
 
-                String filename = image.getFileName().toString();
+                    String filename = image.getFileName().toString();
 
-                if (!queries_.existsByFilenameAndHash(filename, hash)) {
-                    Path thumbnail = getThumbnailPath(hash);
+                    if (!queries_.existsByFilenameAndHash(filename, hash)) {
+                        Path thumbnail = getThumbnailPath(hash);
 
-                    if (!Files.exists(thumbnail)) {
-                        final boolean success = imageMagick.createThumbnail(image, thumbnail);
-                        if (!success) {
-                            System.err.println("Error creating thumbnail");
-                            return;
+                        if (!Files.exists(thumbnail)) {
+                            final boolean success = imageMagick.createThumbnail(image, thumbnail);
+                            if (!success) {
+                                pb.step();
+                                System.err.println("Error creating thumbnail");
+                                return;
+                            }
+                        }
+
+                        try (InputStream is = Files.newInputStream(image)) {
+                            Metadata metadata = ImageMetadataReader.readMetadata(is);
+                            Location location = getLocation(metadata);
+                            LocalDateTime creationTime = getCreationTime(image, metadata);
+                            emf.unwrap(SessionFactory.class).inStatelessSession(ss -> {
+                                Media media = null;
+                                media = new Media(hash, filename, creationTime, image.toUri().toString(), location);
+                                ss.insert(media);
+                            });
+                            counter.incrementAndGet();
+
+                        } catch (ImageProcessingException e) {
+                            e.printStackTrace();
+                            // not an image or something else
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
                         }
                     }
 
-                    try (InputStream is = Files.newInputStream(image)) {
-                        Metadata metadata = ImageMetadataReader.readMetadata(is);
-                        Location location = getLocation(metadata);
-                        LocalDateTime creationTime = getCreationTime(image, metadata);
-                        emf.unwrap(SessionFactory.class).inStatelessSession(ss -> {
-                            Media media = null;
-                            media = new Media(hash, filename, creationTime, image.toUri().toString(), location);
-                            ss.insert(media);
-                        });
-                        counter.incrementAndGet();
-                    } catch (ImageProcessingException e) {
-                        e.printStackTrace();
-                        // not an image or something else
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-            }));*/
-        }
-        executorService.shutdown();
-        executorService.awaitTermination(3, TimeUnit.HOURS);
+                    pb.step();
+                }));
+            }
+            // progress bar stops automatically after completion of try-with-resource block
 
+
+            executorService.shutdown();
+            executorService.awaitTermination(3, TimeUnit.HOURS);
+        }
         long end = System.currentTimeMillis();
         System.out.println("Converted " + counter + " images to thumbnails. Took " + ((end - start) * 0.001) + "seconds");
     }
