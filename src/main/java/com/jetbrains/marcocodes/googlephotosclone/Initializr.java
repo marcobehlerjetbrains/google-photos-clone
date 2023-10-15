@@ -91,6 +91,7 @@ public class Initializr implements ApplicationRunner {
                 .hideEta()
                 .setTaskName("Full Scan")
                 .setStyle(ProgressBarStyle.ASCII)
+                //.setConsumer(new DelegatingProgressBarConsumer(logger::info))
                 .build();
 
         try (pb) { // name, initial max
