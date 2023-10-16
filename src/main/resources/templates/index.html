@@ -78,11 +78,17 @@
 </head>
 <body>
 
-
+<input class="form-control" type="search"
+       name="search" placeholder="Put a query here"
+       hx-post="/search"
+       hx-trigger="keyup changed delay:300ms, search"
+       hx-target="#search-results">
 
 <div th:replace="~{archive_ui.html :: archive_ui}"></div>
 
-<div th:replace="~{seek.html :: seek}"></div>
+<div id="search-results">
+    <div th:replace="~{seek.html :: seek}"></div>
+</div>
 
 
 </body>

@@ -41,8 +41,21 @@ public class MediaController {
 
 
     @GetMapping("/seek")
-    public String index(Model model, @RequestParam @DateTimeFormat(pattern = "yyyyMMddHHmmss") LocalDateTime date, @RequestParam Long id) {
-        List<Media> media = queries_.mediaSeek(date, id);
+    public String index(Model model, @RequestParam @DateTimeFormat(pattern = "yyyyMMddHHmmss") LocalDateTime date, @RequestParam Long id, @RequestParam(required = false) String search) {
+        List<Media> media;
+        if (search != null && !search.isBlank()) {
+            media = queries_.mediaSeek(date, id, search);
+        } else {
+            media = queries_.mediaSeek(date, id);
+        }
+        model.addAttribute("datesToMedia", Media.toMap(media));
+        return "seek";
+    }
+
+    @PostMapping("/search")
+    public String search(Model model, @RequestBody String query) {
+        System.out.println("search for +++++ " + query);
+        List<Media> media = queries_.mediaSeek();
         model.addAttribute("datesToMedia", Media.toMap(media));
         return "seek";
     }

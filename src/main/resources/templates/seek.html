@@ -14,7 +14,7 @@
         </h2>
 
         <a th:href="${'/b/' + media.hash}" th:each="media: ${dateToMedia.value}" class="img" th:with="isLast=${dateToMediaStat.last && mediaStat.last}"
-           th:attrappend="hx-trigger=${isLast}?'revealed',hx-swap=${isLast}?'afterend',hx-get=${isLast}?${'/seek?date=' + #temporals.format(media.creationDate, 'yyyyMMddHHmmss') + '&id='+ media.id}">
+           th:attrappend="hx-include=${isLast}?'[name=\'search\']', hx-trigger=${isLast}?'revealed',hx-swap=${isLast}?'afterend',hx-get=${isLast}?${'/seek?date=' + #temporals.format(media.creationDate, 'yyyyMMddHHmmss') + '&id='+ media.id}">
             <img th:src="${'/a/' + media.hash}">
         </a>
     </div>
