@@ -88,7 +88,7 @@ public class Initializr implements ApplicationRunner {
                 .filter(Initializr::isImage).count();
         ProgressBar pb = new ProgressBarBuilder()
                 .setInitialMax(totalImages)
-                .hideEta()
+                //.hideEta()
                 .setTaskName("Full Scan")
                 .setStyle(ProgressBarStyle.ASCII)
                 //.setConsumer(new DelegatingProgressBarConsumer(logger::info))
