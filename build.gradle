@@ -32,6 +32,9 @@ dependencies {
     // https://mvnrepository.com/artifact/org.mapstruct/mapstruct-processor
     annotationProcessor group: 'org.mapstruct', name: 'mapstruct-processor', version: '1.5.5.Final'
 
+
+    implementation 'org.flywaydb:flyway-core'
+
     // https://mvnrepository.com/artifact/org.mapstruct/mapstruct
     implementation group: 'org.mapstruct', name: 'mapstruct', version: '1.5.5.Final'
 
