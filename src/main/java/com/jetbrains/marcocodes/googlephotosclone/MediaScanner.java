@@ -36,12 +36,14 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Component
@@ -92,14 +94,19 @@ public class MediaScanner {
         try (pb) { // name, initial max
 
             ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-            try (Stream<Path> images = Files.walk(sourceDir)
+            try (Stream<Path> scannedMedia = Files.walk(sourceDir)
                     .parallel()
-                    .filter(Files::isRegularFile)
-                    .filter(this::isImage);
+                    .filter(f -> Files.isRegularFile(f) && isImage(f))
             ) {
+
+
+                //ArrayList<Path> media = scannedMedia.collect(Collectors.toCollection(ArrayList::new));
                 // try-with-resource block
 
-                images.forEach(image -> executorService.submit(() -> {
+                // IntStream.range(0, media.size()/50+1).mapToObj(chunkNum -> media.subList(chunkNum*50, Math.min(media.size(), chunkNum*50+50))).parallel().forEach(50iesBatch -. {);
+
+
+                scannedMedia.forEach(image -> executorService.submit(() -> {
                     String hash = hash(image);
                     if (hash == null) {
                         System.err.println("Could not compute hash for image : " + image.toAbsolutePath().toString());
