@@ -227,7 +227,7 @@ public class MediaScanner {
                             List<HashedMedia> hashedBatch = batch.stream().map(path -> new HashedMedia(path, hash(path))).toList();
                             List<HashedMedia> unknownMedia = findNonExisting(hashedBatch);
 
-                            for (HashedMedia each : unknownMedia) {
+                         /*   for (HashedMedia each : unknownMedia) {
                                 try {
                                     Path image = each.path();
                                     String filename = image.getFileName().toString();
@@ -259,7 +259,7 @@ public class MediaScanner {
                                 } catch (Exception e) {
                                     e.printStackTrace();
                                 }
-                            }
+                            }*/
                             pb.stepBy(hashedBatch.size());
                         });
                     });
