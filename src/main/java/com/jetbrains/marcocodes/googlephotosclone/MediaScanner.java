@@ -427,7 +427,7 @@ public class MediaScanner {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             try (InputStream ios = Files.newInputStream(file)) {
-                int BUFFER_SIZE = 8192;
+                int BUFFER_SIZE = 4096;
                 while (true) {
                     byte[] buffer1 = new byte[BUFFER_SIZE];
                     int read = ios.readNBytes(buffer1, 0, BUFFER_SIZE);
