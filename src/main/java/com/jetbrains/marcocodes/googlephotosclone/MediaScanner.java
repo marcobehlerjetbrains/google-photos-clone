@@ -225,7 +225,7 @@ public class MediaScanner {
                     .forEach(batch -> {
                         executorService.submit(() -> {
                             List<HashedMedia> hashedBatch = batch.stream().map(path -> new HashedMedia(path, hash(path))).toList();
-                            System.out.println(hashedBatch.size());
+
                         //
                             //    List<HashedMedia> unknownMedia = findNonExisting(hashedBatch);
 
