@@ -135,7 +135,7 @@ public class MediaScanner {
                 // IntStream.range(0, media.size()/50+1).mapToObj(chunkNum -> media.subList(chunkNum*50, Math.min(media.size(), chunkNum*50+50))).parallel().forEach(50iesBatch -. {);
                 scannedMedia.forEach(image -> executorService.submit(() -> {
                     String hash = hash(image);
-                    if (hash == null) {
+                /*    if (hash == null) {
                         System.err.println("Could not compute hash for image : " + image.toAbsolutePath().toString());
                         return;
                     }
@@ -171,7 +171,7 @@ public class MediaScanner {
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
-                    }
+                    }*/
 
                     pb.step();
                 }));
