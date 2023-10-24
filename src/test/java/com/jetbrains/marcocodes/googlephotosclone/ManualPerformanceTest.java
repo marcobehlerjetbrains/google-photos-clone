@@ -35,6 +35,15 @@ import java.nio.file.Path;
 
  spring.datasource.url=jdbc:h2:./db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=false
 
+
+ sudo iostat p sda  1 100 --pretty -m
+
+ ./gradlew cleanTest :test --tests "com.jetbrains.marcocodes.googlephotosclone.ManualPerformanceTest.fullscan" -Pperformance.test=true -Pstartup.fullscan=false -Pscan.dir=/srv/syncthing/marco -P spring.datasource.url=jdbc:h2:../db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=false
+
+ ./gradlew cleanTest :test --tests "com.jetbrains.marcocodes.googlephotosclone.ManualPerformanceTest.fullscanNewAlgo" -Pperformance.test=true -Pstartup.fullscan=false -Pscan.dir=/srv/syncthing/marco -P spring.datasource.url=jdbc:h2:../db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=false
+
+
+ sudo hdparm -Tt /dev/sda
  *
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
