@@ -38,12 +38,16 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 @Component
@@ -192,21 +196,21 @@ public class MediaScanner {
     public int fullscanNewAlgo(Path sourceDir) {
         AtomicInteger counter = new AtomicInteger();
 
-        long mediaCount;
-
-        try (Stream<Path> media = Files.walk(sourceDir)
+        ArrayList<Path> media;
+        try (Stream<Path> pathsToScan = Files.walk(sourceDir)
                 .parallel()
                 .filter(Files::isRegularFile)
                 .filter(this::isImage)) {
-            mediaCount = media.count();
+            media = pathsToScan.collect(Collectors.toCollection(ArrayList::new));
         } catch (IOException e) {
             logger.error("Error getting media count", e);
             return 0;
         }
 
 
+        int count = media.size();
         ProgressBar pb = new ProgressBarBuilder()
-                .setInitialMax(mediaCount)
+                .setInitialMax(count)
                 //.hideEta()
                 .setTaskName("Full Scan")
                 .setStyle(ProgressBarStyle.ASCII)
@@ -214,63 +218,47 @@ public class MediaScanner {
                 .build();
 
         try (pb) { // name, initial max
-
             ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-            try (Stream<Path> scannedMedia = Files.walk(sourceDir)
+            int batchSize = 50;
+            IntStream.range(0, media.size() / batchSize + 1).mapToObj(chunkNum -> media.subList(chunkNum * batchSize, Math.min(media.size(), chunkNum * batchSize + batchSize)))
                     .parallel()
-                    .filter(f -> Files.isRegularFile(f) && isImage(f))
-            ) {
+                    .forEach(batch -> {
+                        executorService.submit(() -> {
+                            List<HashedMedia> hashedBatch = batch.stream().map(path -> new HashedMedia(path, hash(path))).toList();
+                            List<HashedMedia> unknownMedia = List.of();
 
-                //ArrayList<Path> media = scannedMedia.collect(Collectors.toCollection(ArrayList::new));
-                // try-with-resource block
-                // IntStream.range(0, media.size()/50+1).mapToObj(chunkNum -> media.subList(chunkNum*50, Math.min(media.size(), chunkNum*50+50))).parallel().forEach(50iesBatch -. {);
-                scannedMedia.forEach(image -> executorService.submit(() -> {
-                    String hash = hash(image);
-                    if (hash == null) {
-                        System.err.println("Could not compute hash for image : " + image.toAbsolutePath().toString());
-                        return;
-                    }
+                            for (HashedMedia each : unknownMedia) {
+                                Path image = each.path();
+                                String filename = image.getFileName().toString();
+                                Path thumbnail = getThumbnailPath(each.hash());
 
-                    String filename = image.getFileName().toString();
+                                if (!Files.exists(thumbnail)) {
+                                    final boolean success = imageMagick.createThumbnail(image, thumbnail);
+                                    if (!success) {
+                                        pb.step();
+                                        System.err.println("Error creating thumbnail");
+                                        continue;
+                                    }
+                                }
 
-                    if (!queries_.existsByFilenameAndHash(filename, hash)) {
-                        Path thumbnail = getThumbnailPath(hash);
-
-                        if (!Files.exists(thumbnail)) {
-                            final boolean success = imageMagick.createThumbnail(image, thumbnail);
-                            if (!success) {
-                                pb.step();
-                                System.err.println("Error creating thumbnail");
-                                return;
+                                try (InputStream is = Files.newInputStream(image)) {
+                                    Metadata metadata = ImageMetadataReader.readMetadata(is);
+                                    Location location = getLocation(metadata);
+                                    LocalDateTime creationTime = getCreationTime(image, metadata);
+                                    emf.unwrap(SessionFactory.class).inStatelessSession(ss -> {
+                                        ss.insert(new Media(each.hash(), filename, creationTime, image.toUri().toString(), location));
+                                    });
+                                    counter.incrementAndGet();
+                                } catch (ImageProcessingException e) {
+                                    e.printStackTrace();
+                                    // not an image or something else
+                                } catch (IOException e) {
+                                    throw new RuntimeException(e);
+                                }
                             }
-                        }
-
-                        try (InputStream is = Files.newInputStream(image)) {
-                            Metadata metadata = ImageMetadataReader.readMetadata(is);
-                            Location location = getLocation(metadata);
-                            LocalDateTime creationTime = getCreationTime(image, metadata);
-                            emf.unwrap(SessionFactory.class).inStatelessSession(ss -> {
-                                Media media = null;
-                                media = new Media(hash, filename, creationTime, image.toUri().toString(), location);
-                                ss.insert(media);
-                            });
-                            counter.incrementAndGet();
-
-                        } catch (ImageProcessingException e) {
-                            e.printStackTrace();
-                            // not an image or something else
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-
-                    pb.step();
-                }));
-            } catch (IOException e) {
-                logger.error("Error converting media count", e);
-                return 0;
-            }
-
+                            pb.stepBy(hashedBatch.size());
+                        });
+                    });
             try {
                 executorService.shutdown();
                 executorService.awaitTermination(3, TimeUnit.HOURS);
