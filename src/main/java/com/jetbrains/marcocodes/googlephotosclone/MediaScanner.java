@@ -189,7 +189,7 @@ public class MediaScanner {
 
 
 
-    public int fullscan_newAlgo(Path sourceDir) {
+    public int fullscanNewAlgo(Path sourceDir) {
         AtomicInteger counter = new AtomicInteger();
 
         long mediaCount;

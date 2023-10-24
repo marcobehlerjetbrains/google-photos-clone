@@ -22,13 +22,24 @@ import java.nio.file.Path;
  gradle someTestTask --tests '*UiTest' someOtherTestTask --tests '*WebTest*ui'
 
 
+ ./gradlew cleanTest :test --tests "com.jetbrains.marcocodes.googlephotosclone.MediaScannerTest" -Pperformance.test=false -Pstartup.fullscan=false -Pscan.dir=C:\\tmp
+
  :test --tests "com.jetbrains.marcocodes.googlephotosclone.MediaScannerTest" -Pperformance.test=true
+
+
+ ./gradlew cleanTest :test --tests "com.jetbrains.marcocodes.googlephotosclone.MediaScannerTest" -Pperformance.test=false -Pstartup.fullscan=false -Pscan.dir=/srv/syncthing/marco -P spring.datasource.url=jdbc:h2:../db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=false
+
+
+
+ ./gradlew cleanTest :test --tests "com.jetbrains.marcocodes.googlephotosclone.MediaScannerTest" -Pperformance.test=true -Pstartup.fullscan=false -Pscan.dir=/srv/syncthing/marco -P spring.datasource.url=jdbc:h2:../db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=false
+
+ spring.datasource.url=jdbc:h2:./db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=false
 
  *
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @EnabledIfSystemProperty(named = "performance.test", matches = "true")
-class MediaScannerTest {
+class ManualPerformanceTest {
 
     @Value("${scan.dir}")
     private String scanDirectory;
@@ -39,10 +50,11 @@ class MediaScannerTest {
     @Test
     void fullscan() {
         mediaScanner.fullscan(Path.of(this.scanDirectory));
+    }
 
-       // mediaScanner.fullscan(Path.of("c:\\tmp"));
-
-        // print out time
+    @Test
+    void fullscanNewAlgo() {
+        mediaScanner.fullscanNewAlgo(Path.of(this.scanDirectory));
     }
 
 
