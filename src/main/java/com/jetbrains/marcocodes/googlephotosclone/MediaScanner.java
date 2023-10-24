@@ -13,10 +13,12 @@ import com.drew.metadata.jpeg.JpegDirectory;
 import com.drew.metadata.png.PngDirectory;
 import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.Tuple;
 import me.tongfei.progressbar.ProgressBar;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import me.tongfei.progressbar.ProgressBarStyle;
 import org.hibernate.SessionFactory;
+import org.hibernate.query.NativeQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,9 +40,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -224,8 +224,8 @@ public class MediaScanner {
                     .parallel()
                     .forEach(batch -> {
                         executorService.submit(() -> {
-                            List<HashedMedia> hashedBatch = batch.stream().map(path -> new HashedMedia(path, hash(path))).toList();
-                            List<HashedMedia> unknownMedia = List.of();
+                            List<HashedMedia> hashedBatch = batch.stream().parallel().map(path -> new HashedMedia(path, hash(path))).toList();
+                            List<HashedMedia> unknownMedia = findNonExisting(hashedBatch);
 
                             for (HashedMedia each : unknownMedia) {
                                 Path image = each.path();
@@ -270,8 +270,32 @@ public class MediaScanner {
         return counter.get();
     }
 
+    private List<HashedMedia> findNonExisting(List<HashedMedia> hashedBatch) {
+        StringBuilder builder = new StringBuilder();
+        Iterator<HashedMedia> iterator = hashedBatch.iterator();
+        while (iterator.hasNext()) {
+            HashedMedia next = iterator.next();
+            builder.append("('").append(next.path().toUri()).append("','").append(next.hash()).append("')");
+            if (iterator.hasNext()) builder.append(",");
+        }
+        String query = "WITH media_batch AS (\n" +
+                      "    SELECT original_file, hash\n" +
+                      "    FROM (\n" +
+                      "        VALUES " + builder + ")" +
+                      "        v(original_file,hash)\n" +
+                      ")" +
+                      "select original_file as uri, hash from media_batch" +
+                      " where not exists(" +
+                      "    select * from MEDIA m where m.original_file = media_batch.original_file and m.hash = media_batch.hash" +
+                      ")" +
+                      "\n";
 
-
+        List<HashedMedia> hashedMedia = emf.unwrap(SessionFactory.class).fromStatelessSession(ss -> {
+            NativeQuery<HashedMedia> nativeQuery = ss.createNativeQuery(query, HashedMedia.class);
+            return nativeQuery.getResultList();
+        });
+        return hashedMedia;
+    }
 
 
     private boolean isImage(Path path) {

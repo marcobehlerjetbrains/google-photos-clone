@@ -34,7 +34,7 @@ public class Initializr implements ApplicationRunner {
             Path sourceDir = Path.of(directory);
 
             long start = System.currentTimeMillis();
-            int scanned = mediaScanner.fullscan(sourceDir);
+            int scanned = mediaScanner.fullscanNewAlgo(sourceDir);
             long end = System.currentTimeMillis();
 
             logger.info("Converted " + scanned + " images to thumbnails. Took " + ((end - start) * 0.001) + "seconds");
