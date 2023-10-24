@@ -22,6 +22,9 @@ repositories {
 }
 
 dependencies {
+
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
@@ -45,6 +48,32 @@ dependencies {
     // https://mvnrepository.com/artifact/com.google.guava/guava
     implementation group: 'com.google.guava', name: 'guava', version: '32.1.2-jre'
 
+
+}
+
+test {
+    testLogging.showStandardStreams = true
+
+    def performanceTestEnabled = project.properties["performance.test"]
+    if (performanceTestEnabled != null) {
+        systemProperty "performance.test", performanceTestEnabled
+    }
+
+    def fullScanOnStartup = project.properties["startup.fullscan"]
+    if (fullScanOnStartup != null) {
+        systemProperty "startup.fullscan", fullScanOnStartup
+    }
+
+
+    def thumbnailsDir = project.properties["thumbnails.dir"]
+    if (thumbnailsDir != null) {
+        systemProperty "thumbnails.dir", thumbnailsDir
+    }
+
+    def dataSourceUrl = project.properties["spring.datasource.url"]
+    if (dataSourceUrl != null) {
+        systemProperty "spring.datasource.url", dataSourceUrl
+    }
 
 }
 

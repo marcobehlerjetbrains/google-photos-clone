@@ -11,6 +11,7 @@ import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.exif.GpsDirectory;
 import com.drew.metadata.jpeg.JpegDirectory;
 import com.drew.metadata.png.PngDirectory;
+import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityManagerFactory;
 import me.tongfei.progressbar.ProgressBar;
 import me.tongfei.progressbar.ProgressBarBuilder;
@@ -18,6 +19,7 @@ import me.tongfei.progressbar.ProgressBarStyle;
 import org.hibernate.SessionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -36,14 +38,12 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Component
@@ -58,14 +58,41 @@ public class MediaScanner {
 
     private final EntityManagerFactory emf;
 
-    private String userHome = System.getProperty("user.home");
-    private Path thumbnailsDir = Path.of(userHome).resolve(".photos");
+    @Value("${thumbnails.dir:#{null}}")
+    private String thumbnailsDir;
+
+    private Path thumbnailsDirectory;
 
     public MediaScanner(Queries queries, ImageMagick imageMagick, EntityManagerFactory emf) {
         queries_ = queries;
         this.imageMagick = imageMagick;
         this.emf = emf;
     }
+
+
+    @PostConstruct
+    public void setup() {
+        if (thumbnailsDir == null) {
+            thumbnailsDirectory = defaultThumbnailsDirectory();
+            logger.info("Setting thumbnails directory to {}", thumbnailsDirectory.normalize().toAbsolutePath());
+            return;
+        }
+
+        Path userDefinedDirectory = Path.of(thumbnailsDir);
+        if (!Files.exists(userDefinedDirectory)) {
+            thumbnailsDirectory = defaultThumbnailsDirectory();
+            logger.warn("User defined thumbnails directory {} does not exist. Defaulting to {}", userDefinedDirectory.normalize().toAbsolutePath(), thumbnailsDirectory.normalize().toAbsolutePath());
+            return;
+        }
+
+        thumbnailsDirectory = Path.of(thumbnailsDir);
+    }
+
+    private static Path defaultThumbnailsDirectory() {
+        String userHome = System.getProperty("user.home");
+        return Path.of(userHome).resolve(".photos");
+    }
+
 
     public int fullscan(Path sourceDir) {
         AtomicInteger counter = new AtomicInteger();
@@ -99,13 +126,9 @@ public class MediaScanner {
                     .filter(f -> Files.isRegularFile(f) && isImage(f))
             ) {
 
-
                 //ArrayList<Path> media = scannedMedia.collect(Collectors.toCollection(ArrayList::new));
                 // try-with-resource block
-
                 // IntStream.range(0, media.size()/50+1).mapToObj(chunkNum -> media.subList(chunkNum*50, Math.min(media.size(), chunkNum*50+50))).parallel().forEach(50iesBatch -. {);
-
-
                 scannedMedia.forEach(image -> executorService.submit(() -> {
                     String hash = hash(image);
                     if (hash == null) {
@@ -163,6 +186,105 @@ public class MediaScanner {
 
         return counter.get();
     }
+
+
+
+    public int fullscan_newAlgo(Path sourceDir) {
+        AtomicInteger counter = new AtomicInteger();
+
+        long mediaCount;
+
+        try (Stream<Path> media = Files.walk(sourceDir)
+                .parallel()
+                .filter(Files::isRegularFile)
+                .filter(this::isImage)) {
+            mediaCount = media.count();
+        } catch (IOException e) {
+            logger.error("Error getting media count", e);
+            return 0;
+        }
+
+
+        ProgressBar pb = new ProgressBarBuilder()
+                .setInitialMax(mediaCount)
+                //.hideEta()
+                .setTaskName("Full Scan")
+                .setStyle(ProgressBarStyle.ASCII)
+                //.setConsumer(new DelegatingProgressBarConsumer(logger::info))
+                .build();
+
+        try (pb) { // name, initial max
+
+            ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+            try (Stream<Path> scannedMedia = Files.walk(sourceDir)
+                    .parallel()
+                    .filter(f -> Files.isRegularFile(f) && isImage(f))
+            ) {
+
+                //ArrayList<Path> media = scannedMedia.collect(Collectors.toCollection(ArrayList::new));
+                // try-with-resource block
+                // IntStream.range(0, media.size()/50+1).mapToObj(chunkNum -> media.subList(chunkNum*50, Math.min(media.size(), chunkNum*50+50))).parallel().forEach(50iesBatch -. {);
+                scannedMedia.forEach(image -> executorService.submit(() -> {
+                    String hash = hash(image);
+                    if (hash == null) {
+                        System.err.println("Could not compute hash for image : " + image.toAbsolutePath().toString());
+                        return;
+                    }
+
+                    String filename = image.getFileName().toString();
+
+                    if (!queries_.existsByFilenameAndHash(filename, hash)) {
+                        Path thumbnail = getThumbnailPath(hash);
+
+                        if (!Files.exists(thumbnail)) {
+                            final boolean success = imageMagick.createThumbnail(image, thumbnail);
+                            if (!success) {
+                                pb.step();
+                                System.err.println("Error creating thumbnail");
+                                return;
+                            }
+                        }
+
+                        try (InputStream is = Files.newInputStream(image)) {
+                            Metadata metadata = ImageMetadataReader.readMetadata(is);
+                            Location location = getLocation(metadata);
+                            LocalDateTime creationTime = getCreationTime(image, metadata);
+                            emf.unwrap(SessionFactory.class).inStatelessSession(ss -> {
+                                Media media = null;
+                                media = new Media(hash, filename, creationTime, image.toUri().toString(), location);
+                                ss.insert(media);
+                            });
+                            counter.incrementAndGet();
+
+                        } catch (ImageProcessingException e) {
+                            e.printStackTrace();
+                            // not an image or something else
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+
+                    pb.step();
+                }));
+            } catch (IOException e) {
+                logger.error("Error converting media count", e);
+                return 0;
+            }
+
+            try {
+                executorService.shutdown();
+                executorService.awaitTermination(3, TimeUnit.HOURS);
+            } catch (InterruptedException e) {
+                // nothing to do here, just silently ignore
+            }
+        }
+
+        return counter.get();
+    }
+
+
+
+
 
     private boolean isImage(Path path) {
         try {
@@ -271,7 +393,7 @@ public class MediaScanner {
         String dir = hash.substring(0, 2);
         String filename = hash.substring(2);
 
-        Path storageDir = thumbnailsDir.resolve(dir);
+        Path storageDir = thumbnailsDirectory.resolve(dir);
         if (!Files.exists(storageDir)) {
             try {
                 Files.createDirectories(storageDir);
