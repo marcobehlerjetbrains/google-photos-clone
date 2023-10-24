@@ -224,7 +224,7 @@ public class MediaScanner {
                     .parallel()
                     .forEach(batch -> {
                         executorService.submit(() -> {
-                            List<HashedMedia> hashedBatch = batch.stream().parallel().map(path -> new HashedMedia(path, hash(path))).toList();
+                            List<HashedMedia> hashedBatch = batch.stream().map(path -> new HashedMedia(path, hash(path))).toList();
                             List<HashedMedia> unknownMedia = findNonExisting(hashedBatch);
 
                             for (HashedMedia each : unknownMedia) {
