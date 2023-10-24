@@ -75,6 +75,11 @@ test {
         systemProperty "spring.datasource.url", dataSourceUrl
     }
 
+    def scanDir = project.properties["scan.dir"]
+    if (scanDir != null) {
+        systemProperty "scan.dir", scanDir
+    }
+
 }
 
 tasks.named('test') {

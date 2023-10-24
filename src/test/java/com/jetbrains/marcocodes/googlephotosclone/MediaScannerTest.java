@@ -3,7 +3,10 @@ package com.jetbrains.marcocodes.googlephotosclone;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+
+import java.nio.file.Path;
 
 
 /**
@@ -27,14 +30,15 @@ import org.springframework.boot.test.context.SpringBootTest;
 @EnabledIfSystemProperty(named = "performance.test", matches = "true")
 class MediaScannerTest {
 
+    @Value("${scan.dir}")
+    private String scanDirectory;
+
     @Autowired
     private MediaScanner mediaScanner;
 
     @Test
     void fullscan() {
-
-        System.out.println("Yada yada yada");
-      //  mediaScanner.fullscan(Path.of("c:\\tmp"));
+        mediaScanner.fullscan(Path.of(this.scanDirectory));
 
        // mediaScanner.fullscan(Path.of("c:\\tmp"));
 
