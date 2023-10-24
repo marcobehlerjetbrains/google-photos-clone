@@ -228,32 +228,36 @@ public class MediaScanner {
                             List<HashedMedia> unknownMedia = findNonExisting(hashedBatch);
 
                             for (HashedMedia each : unknownMedia) {
-                                Path image = each.path();
-                                String filename = image.getFileName().toString();
-                                Path thumbnail = getThumbnailPath(each.hash());
+                                try {
+                                    Path image = each.path();
+                                    String filename = image.getFileName().toString();
+                                    Path thumbnail = getThumbnailPath(each.hash());
 
-                                if (!Files.exists(thumbnail)) {
-                                    final boolean success = imageMagick.createThumbnail(image, thumbnail);
-                                    if (!success) {
-                                        pb.step();
-                                        System.err.println("Error creating thumbnail");
-                                        continue;
+                                    if (!Files.exists(thumbnail)) {
+                                        final boolean success = imageMagick.createThumbnail(image, thumbnail);
+                                        if (!success) {
+                                            pb.step();
+                                            System.err.println("Error creating thumbnail");
+                                            continue;
+                                        }
                                     }
-                                }
 
-                                try (InputStream is = Files.newInputStream(image)) {
-                                    Metadata metadata = ImageMetadataReader.readMetadata(is);
-                                    Location location = getLocation(metadata);
-                                    LocalDateTime creationTime = getCreationTime(image, metadata);
-                                    emf.unwrap(SessionFactory.class).inStatelessSession(ss -> {
-                                        ss.insert(new Media(each.hash(), filename, creationTime, image.toUri().toString(), location));
-                                    });
-                                    counter.incrementAndGet();
-                                } catch (ImageProcessingException e) {
+                                    try (InputStream is = Files.newInputStream(image)) {
+                                        Metadata metadata = ImageMetadataReader.readMetadata(is);
+                                        Location location = getLocation(metadata);
+                                        LocalDateTime creationTime = getCreationTime(image, metadata);
+                                        emf.unwrap(SessionFactory.class).inStatelessSession(ss -> {
+                                            ss.insert(new Media(each.hash(), filename, creationTime, image.toUri().toString(), location));
+                                        });
+                                        counter.incrementAndGet();
+                                    } catch (ImageProcessingException e) {
+                                        e.printStackTrace();
+                                        // not an image or something else
+                                    } catch (IOException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                } catch (Exception e) {
                                     e.printStackTrace();
-                                    // not an image or something else
-                                } catch (IOException e) {
-                                    throw new RuntimeException(e);
                                 }
                             }
                             pb.stepBy(hashedBatch.size());
