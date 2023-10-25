@@ -62,33 +62,13 @@ dependencies {
 
 test {
     testLogging.showStandardStreams = true
-
-    def performanceTestEnabled = project.properties["performance.test"]
-    if (performanceTestEnabled != null) {
-        systemProperty "performance.test", performanceTestEnabled
-    }
-
-    def fullScanOnStartup = project.properties["startup.fullscan"]
-    if (fullScanOnStartup != null) {
-        systemProperty "startup.fullscan", fullScanOnStartup
-    }
-
-
-    def thumbnailsDir = project.properties["thumbnails.dir"]
-    if (thumbnailsDir != null) {
-        systemProperty "thumbnails.dir", thumbnailsDir
-    }
-
-    def dataSourceUrl = project.properties["spring.datasource.url"]
-    if (dataSourceUrl != null) {
-        systemProperty "spring.datasource.url", dataSourceUrl
-    }
-
-    def scanDir = project.properties["scan.dir"]
-    if (scanDir != null) {
-        systemProperty "scan.dir", scanDir
-    }
-
+    def properties = ["performance.test", "startup.fullscan", "thumbnails.dir", "spring.datasource.url", "scan.dir"]
+    properties.forEach { propertyName -> {
+        def property = project.properties[propertyName]
+        if (property != null) {
+            systemProperty propertyName, property
+        }
+    }}
 }
 
 tasks.named('test') {
