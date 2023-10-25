@@ -24,6 +24,8 @@ repositories {
 dependencies {
 
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+// https://mvnrepository.com/artifact/org.flywaydb/flyway-core
+    implementation group: 'org.flywaydb', name: 'flyway-core'
 
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-web'
@@ -47,6 +49,13 @@ dependencies {
 
     // https://mvnrepository.com/artifact/com.google.guava/guava
     implementation group: 'com.google.guava', name: 'guava', version: '32.1.2-jre'
+
+    // https://mvnrepository.com/artifact/org.mapstruct/mapstruct
+    implementation group: 'org.mapstruct', name: 'mapstruct', version: '1.5.5.Final'
+
+// https://mvnrepository.com/artifact/org.mapstruct/mapstruct-processor
+    annotationProcessor group: 'org.mapstruct', name: 'mapstruct-processor', version: '1.5.5.Final'
+
 
 
 }
