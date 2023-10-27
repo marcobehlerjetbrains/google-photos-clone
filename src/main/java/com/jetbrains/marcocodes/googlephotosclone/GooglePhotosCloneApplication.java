@@ -4,12 +4,14 @@ import jakarta.persistence.EntityManager;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ImportRuntimeHints;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.annotation.ScopedProxyMode;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
 @SpringBootApplication
+@ImportRuntimeHints(value = MyRuntimeHints.class)
 public class GooglePhotosCloneApplication {
 
 
