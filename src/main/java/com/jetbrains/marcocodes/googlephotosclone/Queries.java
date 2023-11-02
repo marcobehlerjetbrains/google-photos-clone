@@ -20,6 +20,6 @@ public interface Queries {
     @HQL("from Media m order by m.creationDate desc, id desc fetch first 20 rows only ")
     List<Media> mediaSeek();
 
-    @SQL("select * from MEDIA m where (m.creation_date, m.id) < (:creationDate, :id) order by m.creation_date desc, id desc fetch first 20 rows only")
+    @SQL("select * from media m where (m.creation_date, m.id) < (:creationDate, :id) order by m.creation_date desc, id desc limit 20")
     List<Media> mediaSeek(LocalDateTime creationDate, Long id);;
 }

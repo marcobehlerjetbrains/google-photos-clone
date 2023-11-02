@@ -15,9 +15,21 @@ public class Media {
     private Long id;
     private String hash;
     private String filename;
+
+
     private LocalDateTime creationDate;
 
     private String originalFile;
+
+    private String jada;
+
+    public String getJada() {
+        return jada;
+    }
+
+    public void setJada(String jada) {
+        this.jada = jada;
+    }
 
     @Embedded
     private Location location;
@@ -83,6 +95,8 @@ public class Media {
     public void setCreationDate(LocalDateTime creationDate) {
         this.creationDate = creationDate;
     }
+
+
 
     public Location getLocation() {
         return location;

@@ -27,13 +27,14 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     // https://mvnrepository.com/artifact/com.h2database/h2
-    runtimeOnly group: 'com.h2database', name: 'h2'
+    /*runtimeOnly group: 'com.h2database', name: 'h2'*/
     annotationProcessor 'org.hibernate.orm:hibernate-jpamodelgen'
     // https://mvnrepository.com/artifact/org.mapstruct/mapstruct-processor
     annotationProcessor group: 'org.mapstruct', name: 'mapstruct-processor', version: '1.5.5.Final'
+    runtimeOnly 'com.mysql:mysql-connector-j'
 
-
-    implementation 'org.flywaydb:flyway-core'
+    /*implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-mysql'*/
 
     // https://mvnrepository.com/artifact/org.mapstruct/mapstruct
     implementation group: 'org.mapstruct', name: 'mapstruct', version: '1.5.5.Final'

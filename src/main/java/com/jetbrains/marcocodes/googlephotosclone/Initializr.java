@@ -70,6 +70,7 @@ public class Initializr implements ApplicationRunner {
         AtomicInteger counter = new AtomicInteger();
         long start = System.currentTimeMillis();
 
+
         ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
         try (Stream<Path> images = Files.walk(sourceDir)
                 .filter(Files::isRegularFile)
