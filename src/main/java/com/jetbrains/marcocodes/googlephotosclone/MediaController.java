@@ -49,9 +49,12 @@ public class MediaController {
 
     @GetMapping("/a/{hash}")
     @ResponseBody
-    public Resource download(@PathVariable String hash) {
-        Path media = thumbnailsDir.resolve(hash.substring(0, 2)).resolve(hash.substring(2) + ".webp");
-        return new PathResource(media);
+    public ResponseEntity<Resource> download(@PathVariable String hash, @RequestParam(value="format",required=false) String format) {
+        String extension = format != null && format.equalsIgnoreCase("png") ? "png" : "webp";
+        Path media = thumbnailsDir.resolve(hash.substring(0, 2)).resolve(hash.substring(2) + "." + extension);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.valueOf("image/" + extension));
+        return ResponseEntity.ok().headers(headers).body(new PathResource(media));
     }
 
 

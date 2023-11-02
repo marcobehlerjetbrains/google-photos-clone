@@ -35,6 +35,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -85,13 +86,15 @@ public class Initializr implements ApplicationRunner {
                 String filename = image.getFileName().toString();
 
                 if (!queries_.existsByFilenameAndHash(filename, hash)) {
-                    Path thumbnail = getThumbnailPath(hash);
+                    List<Path> thumbnails = List.of(getThumbnailPath(hash, ".webp"), getThumbnailPath(hash, ".png"));
 
-                    if (!Files.exists(thumbnail)) {
-                        final boolean success = imageMagick.createThumbnail(image, thumbnail);
-                        if (!success) {
-                            System.err.println("Error creating thumbnail");
-                            return;
+                    for (Path thumbnail : thumbnails) {
+                        if (!Files.exists(thumbnail)) {
+                            final boolean success = imageMagick.createThumbnail(image, thumbnail);
+                            if (!success) {
+                                System.err.println("Error creating thumbnail");
+                                return;
+                            }
                         }
                     }
 
@@ -227,7 +230,7 @@ public class Initializr implements ApplicationRunner {
     }
 
 
-    private Path getThumbnailPath(String hash) {
+    private Path getThumbnailPath(String hash, String extension) {
         String dir = hash.substring(0, 2);
         String filename = hash.substring(2);
 
@@ -239,7 +242,7 @@ public class Initializr implements ApplicationRunner {
                 throw new RuntimeException(e);
             }
         }
-        return storageDir.resolve(filename + ".webp");
+        return storageDir.resolve(filename + extension);
     }
 
 
